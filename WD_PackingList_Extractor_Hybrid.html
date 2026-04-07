@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WD Packing List Extractor - Hybrid</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #f5f5f5; color: #222; min-height: 100vh; padding: 2rem; }
+    .container { max-width: 860px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 2rem; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+    h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+    .subtitle { font-size: 13px; color: #666; margin-bottom: 1.5rem; }
+    #drop-zone { border: 2px dashed #ccc; border-radius: 10px; padding: 2.5rem; text-align: center; cursor: pointer; transition: background 0.15s, border-color 0.15s; background: #fafafa; margin-bottom: 1.25rem; }
+    #drop-zone:hover, #drop-zone.drag-over { background: #eef4ff; border-color: #4a90d9; }
+    #drop-zone .icon { font-size: 36px; margin-bottom: 8px; }
+    #drop-zone p { font-weight: 500; margin-bottom: 4px; }
+    #drop-zone small { color: #888; font-size: 12px; }
+    #file-input { display: none; }
+    .file-tag { display: inline-flex; align-items: center; gap: 6px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 6px; padding: 4px 10px; font-size: 12px; margin: 3px; }
+    .remove-btn { cursor: pointer; color: #aaa; font-size: 14px; }
+    .remove-btn:hover { color: #e44; }
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+    button { padding: 8px 18px; border-radius: 7px; border: 1px solid #ccc; cursor: pointer; font-size: 14px; font-weight: 500; background: #fff; color: #333; transition: background 0.1s; }
+    button:hover { background: #f5f5f5; }
+    button.primary { background: #222; color: #fff; border-color: #222; }
+    button.primary:hover { background: #444; }
+    button.export { background: #1a6e36; color: #fff; border-color: #1a6e36; }
+    button.export:hover { background: #24924a; }
+    button:disabled { opacity: 0.35; cursor: not-allowed; }
+    #status { font-size: 13px; color: #666; margin-top: 6px; min-height: 20px; white-space: pre-line; }
+    #results-section { margin-top: 1.5rem; }
+    .section-label { font-size: 12px; color: #999; margin-bottom: 8px; }
+    .badge { display: inline-block; background: #e6f4ea; color: #1a6e36; font-size: 11px; padding: 2px 8px; border-radius: 5px; margin-left: 6px; }
+    .table-wrap { overflow-x: auto; border: 1px solid #e0e0e0; border-radius: 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; padding: 9px 12px; background: #f5f5f5; border-bottom: 1px solid #e0e0e0; font-weight: 600; color: #555; white-space: nowrap; }
+    td { padding: 7px 12px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; word-break: break-word; }
+    tr:last-child td { border-bottom: none; }
+    tr.group-first td { border-top: 2px solid #ddd; }
+    tr.group-first:first-child td { border-top: none; }
+    .note { font-size: 12px; color: #888; margin-top: 8px; }
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 100; align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; }
+    .modal-box { background: #fff; border-radius: 12px; padding: 1.5rem 2rem; width: 420px; max-width: 95vw; box-shadow: 0 8px 32px rgba(0,0,0,0.18); }
+    .modal-box h2 { font-size: 15px; font-weight: 600; margin-bottom: 1rem; }
+    .filename-row { display: flex; align-items: center; gap: 0; border: 1px solid #ccc; border-radius: 7px; overflow: hidden; font-size: 13px; margin-bottom: 1rem; }
+    .filename-prefix { background: #f0f0f0; padding: 8px 10px; color: #555; white-space: nowrap; border-right: 1px solid #ccc; }
+    .filename-suffix { flex: 1; padding: 8px 10px; border: none; outline: none; font-size: 13px; font-family: inherit; }
+    .filename-ext { background: #f0f0f0; padding: 8px 10px; color: #888; white-space: nowrap; border-left: 1px solid #ccc; }
+    .modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>📦 WD Packing List Extractor</h1>
+  <p class="subtitle">รองรับทั้งฟอร์แมตเดิมและฟอร์แมตใหม่ของลูกค้า แล้ว export ข้อมูล Shipment &amp; Pallet ID เป็น Excel (.xlsx)</p>
+  <div id="drop-zone" onclick="document.getElementById('file-input').click()">
+    <div class="icon">📄</div>
+    <p>คลิกหรือลาก PDF มาวางที่นี่</p>
+    <small>รองรับหลายไฟล์พร้อมกัน (.pdf)</small>
+  </div>
+  <input type="file" id="file-input" accept=".pdf" multiple>
+  <div id="file-list" style="margin-bottom:1rem;"></div>
+  <div class="btn-row">
+    <button class="primary" id="extract-btn" disabled onclick="extractAll()">▶ ดึงข้อมูล</button>
+    <button class="export" id="export-btn" disabled onclick="openExportModal()">⬇ Export Excel (.xlsx)</button>
+    <button onclick="clearAll()">ล้างทั้งหมด</button>
+  </div>
+  <div id="status"></div>
+  <div id="results-section" style="display:none;">
+    <p class="section-label">ผลลัพธ์ <span id="row-count" class="badge"></span></p>
+    <div class="table-wrap"><table><thead><tr><th>Shipment Number / Shipping Mark</th><th>Marks &amp; Pallet ID / Package ID</th></tr></thead><tbody id="results-body"></tbody></table></div>
+    <p class="note">* เวอร์ชัน Hybrid: ลอง parser แบบเดิมก่อน และมี parser ใหม่เป็น fallback / merge เพื่อรองรับ layout ที่ลูกค้าปรับ</p>
+  </div>
+</div>
+<div class="modal-overlay" id="export-modal"><div class="modal-box"><h2>💾 ตั้งชื่อไฟล์ก่อน Export</h2><div class="filename-row"><span class="filename-prefix" id="filename-prefix"></span><input class="filename-suffix" id="filename-suffix" type="text" placeholder="กรอกส่วนท้าย..." /><span class="filename-ext">.xlsx</span></div><div class="modal-btns"><button onclick="closeModal()">ยกเลิก</button><button class="export" onclick="confirmExport()">⬇ Export</button></div></div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+let files=[],results=[]; const $=id=>document.getElementById(id); const dropZone=$('drop-zone'),fileInput=$('file-input'),fileList=$('file-list'),extractBtn=$('extract-btn'),exportBtn=$('export-btn'),status=$('status');
+dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.classList.add('drag-over')});
+dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop',e=>{e.preventDefault();dropZone.classList.remove('drag-over');addFiles([...e.dataTransfer.files].filter(f=>f.type==='application/pdf'||/\.pdf$/i.test(f.name)))});
+fileInput.addEventListener('change',e=>{addFiles([...e.target.files]);fileInput.value=''})
+function addFiles(newFiles){newFiles.forEach(f=>{if(!files.find(x=>x.name===f.name))files.push(f)});renderFileList()} function removeFile(i){files.splice(i,1);renderFileList()} function clearAll(){files=[];results=[];renderFileList();status.textContent='';$('results-section').style.display='none';exportBtn.disabled=true}
+function renderFileList(){fileList.innerHTML='';files.forEach((f,i)=>{const tag=document.createElement('span');tag.className='file-tag';tag.innerHTML=`📄 ${f.name} <span class="remove-btn" onclick="removeFile(${i})">✕</span>`;fileList.appendChild(tag)});extractBtn.disabled=files.length===0;if(files.length===0){$('results-section').style.display='none';exportBtn.disabled=true;results=[]}}
+async function extractItemsAndText(file){const ab=await file.arrayBuffer();const pdf=await pdfjsLib.getDocument({data:ab}).promise;const allItems=[];const pageTexts=[];let yOffset=0;for(let pageNum=1;pageNum<=pdf.numPages;pageNum++){const page=await pdf.getPage(pageNum);const content=await page.getTextContent();const viewport=page.getViewport({scale:1});const pageH=viewport.height;const textParts=[];content.items.forEach(item=>{const str=(item.str||'').trim();if(!str)return;textParts.push(str);const x=item.transform[4];const y=pageH-item.transform[5];allItems.push({str,x,y:y+yOffset})});pageTexts.push(textParts.join(' '));yOffset+=pageH}return {items:allItems,text:pageTexts.join('\n')}}
+function normalizeText(raw){return raw.replace(/!\[\]\[image_[^\]]+\]/g,' ').replace(/\*\*/g,' ').replace(/\s+/g,' ').trim()} function extractShipmentNumber(text){const m=text.match(/\b\d{8}-\d{5}\b/);return m?m[0]:'-'}
+function isNoiseStr(s){if(/^QTY/i.test(s))return true;if(/^\d+$/.test(s))return true;if(/^(TH|COO|Seq|Lin|Part|Order|Customer|DN|Delivery|Customs|Marks|Package|Pallet|Net|Weight|Line|Count|ID|Item|Shipping|Details)$/i.test(s))return true;if(/^(Package ID|Pallet ID|Marks & Pallet|Package ID\s*)$/i.test(s))return true;if(/^Page\s+\d+\s+of\s+\d+/i.test(s))return true;if(/^NOTE:?$/i.test(s))return true;return false}
+function parseSingleShipmentLegacy(items,shipmentNum){let colX=null,colY=null;for(const item of items){if(item.str.includes('Marks')||item.str.includes('Package ID')){colX=item.x;colY=item.y;break}} if(colX===null)return[{shipment:shipmentNum,palletId:'-'}]; let nextColX=colX+130;for(const item of items){if((item.str==='Qty'||item.str==='QTY')&&item.y<colY+40){nextColX=item.x;break}} let stopY=Infinity;for(const item of items){if((item.str.includes('Total Value')||item.str==='NOTE:'||item.str==='NOTE')&&item.y>colY){if(item.y<stopY)stopY=item.y}} const colItems=items.filter(item=>{if(item.y<=colY+10)return false;if(item.y>=stopY)return false;if(item.x<colX-30||item.x>nextColX-5)return false;return !isNoiseStr(item.str)}).sort((a,b)=>a.y-b.y); let combined=''; for(let i=0;i<colItems.length;i++)combined+=colItems[i].str; const rawIds=combined.split(',').map(s=>s.trim()).filter(s=>s.length>=3); const filtered=rawIds.filter(s=>{if(/^\d+$/.test(s))return false;if(/^(TH|QTY|COO)$/i.test(s))return false;if(/^(Package ID|Pallet ID|Package|Pallet|Marks|ID)$/i.test(s))return false;if(s.length<5)return false;return true}); const uniqueIds=[...new Set(filtered)]; if(uniqueIds.length===0)return[{shipment:shipmentNum,palletId:'-'}]; return uniqueIds.map(id=>({shipment:shipmentNum,palletId:id}))}
+function parseLegacyByPosition(items){const shipmentPattern=/^\d{8}-\d{5}$/;const allShipmentItems=items.filter(it=>shipmentPattern.test((it.str||'').trim()));const seenNums=new Map();for(const it of allShipmentItems){const num=it.str.trim();if(!seenNums.has(num)||it.y<seenNums.get(num))seenNums.set(num,it.y)} const anchors=[]; for(const [num,y] of seenNums.entries())anchors.push({num,y}); anchors.sort((a,b)=>a.y-b.y); if(anchors.length===0){const fullText=items.map(i=>i.str).join(' ');const m=fullText.match(/(\d{8}-\d{5})/);return parseSingleShipmentLegacy(items,m?m[1]:'-')} if(anchors.length===1)return parseSingleShipmentLegacy(items,anchors[0].num); const out=[]; for(let i=0;i<anchors.length;i++){const startY=anchors[i].y-200;const endY=i+1<anchors.length?anchors[i+1].y-200:Infinity;const segment=items.filter(item=>item.y>=startY&&item.y<endY);out.push(...parseSingleShipmentLegacy(segment,anchors[i].num))} return out}
+function extractPalletIdsModern(text){const cleaned=normalizeText(text);const ids=[];let match; const regex1=/QTY:\s*\d+\s+\d+\s+((?:[A-Z0-9]+\s*,\s*)+[A-Z0-9]+)\s*,?\s*\d+\.\d{5}/gi; while((match=regex1.exec(cleaned))!==null){match[1].split(',').map(x=>x.trim()).forEach(token=>{if(/^[A-Z0-9]{6,}$/.test(token))ids.push(token)})} if(ids.length===0){const regex2=/([A-Z0-9]{6,}(?:\s*,\s*[A-Z0-9]{6,}){2,})\s*,?\s*\d+\.\d{5}/gi; while((match=regex2.exec(cleaned))!==null){match[1].split(',').map(x=>x.trim()).forEach(token=>{if(/^[A-Z0-9]{6,}$/.test(token))ids.push(token)})}} return [...new Set(ids)]}
+function parseModernByText(text){const shipment=extractShipmentNumber(text);const ids=extractPalletIdsModern(text);if(ids.length===0)return[{shipment,palletId:'-'}];return ids.map(id=>({shipment,palletId:id}))}
+function mergeHybrid(legacyRows,modernRows){const merged=new Map();const addRows=rows=>{rows.forEach(r=>{const shipment=r.shipment||'-';const palletId=(r.palletId||'-').trim();if(!merged.has(shipment))merged.set(shipment,new Set());if(palletId&&palletId!=='-')merged.get(shipment).add(palletId)})}; addRows(legacyRows||[]);addRows(modernRows||[]);const out=[]; if(merged.size===0)return []; merged.forEach((set,shipment)=>{const ids=[...set]; if(ids.length===0)out.push({shipment,palletId:'-'}); else ids.forEach(id=>out.push({shipment,palletId:id}))}); return out}
+async function extractAll(){results=[];status.textContent='กำลังดึงข้อมูล...';extractBtn.disabled=true;$('results-section').style.display='none';for(let i=0;i<files.length;i++){status.textContent=`กำลังอ่านไฟล์ ${i+1}/${files.length}: ${files[i].name}`;try{const payload=await extractItemsAndText(files[i]);const legacyRows=parseLegacyByPosition(payload.items);const modernRows=parseModernByText(payload.text);const hybridRows=mergeHybrid(legacyRows,modernRows);if(hybridRows.length===0){const shipment=extractShipmentNumber(payload.text);results.push({shipment,palletId:'-'})}else{results.push(...hybridRows)}}catch(e){results.push({shipment:'Error',palletId:e.message})}}renderResults();extractBtn.disabled=false;status.textContent=`เสร็จสิ้น — พบข้อมูล ${results.length} แถว`}
+function renderResults(){const tbody=$('results-body');tbody.innerHTML='';results.forEach((r,idx)=>{const tr=document.createElement('tr');const isFirst=idx===0||results[idx-1].shipment!==r.shipment;tr.className=isFirst?'group-first':'group-cont';tr.innerHTML=`<td>${r.shipment}</td><td>${r.palletId}</td>`;tbody.appendChild(tr)});$('row-count').textContent=`${results.length} รายการ`; $('results-section').style.display='block';exportBtn.disabled=results.length===0}
+function getDatePrefix(){const now=new Date();const y=now.getFullYear();const m=String(now.getMonth()+1).padStart(2,'0');const d=String(now.getDate()).padStart(2,'0');return `${y}${m}${d} - T.`} function openExportModal(){$('filename-prefix').textContent=getDatePrefix();$('filename-suffix').value='';$('export-modal').classList.add('open');setTimeout(()=>$('filename-suffix').focus(),50)} function closeModal(){$('export-modal').classList.remove('open')}
+document.addEventListener('DOMContentLoaded',()=>{$('filename-suffix').addEventListener('keydown',e=>{if(e.key==='Enter')confirmExport();if(e.key==='Escape')closeModal()});$('export-modal').addEventListener('click',e=>{if(e.target===$('export-modal'))closeModal()})});
+function confirmExport(){const prefix=$('filename-prefix').textContent;const suffix=$('filename-suffix').value.trim();const filename=prefix+suffix+'.xlsx';closeModal();doExport(filename)}
+function doExport(filename){const header=['Shipment Number / Shipping Mark','Marks & Pallet ID / Package ID'];const rows=results.map(r=>[r.shipment,r.palletId]);const col1Texts=[header[0],...rows.map(r=>r[0])];const col2Texts=[header[1],...rows.map(r=>r[1])];const col1Width=Math.max(...col1Texts.map(s=>String(s).length))+2;const col2Width=Math.max(...col2Texts.map(s=>String(s).length))+2;const wsData=[header,...rows];const ws=XLSX.utils.aoa_to_sheet(wsData);ws['!cols']=[{wch:col1Width},{wch:col2Width}];const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Packing List');XLSX.writeFile(wb,filename)}
+</script>
+</body>
+</html>
