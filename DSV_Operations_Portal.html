@@ -17,18 +17,22 @@
     .panel { display:none; height:100%; }
     .panel.active { display:block; }
     iframe { width:100%; height:100%; border:0; background:#fff; }
-    @media (max-width: 900px) {
-      .topbar { align-items:flex-start; flex-direction:column; }
-      .tabs { width:100%; }
-      .tab-btn { flex:1 1 auto; }
-    }
+    @media (max-width: 900px) { .topbar { align-items:flex-start; flex-direction:column; } .tabs { width:100%; } .tab-btn { flex:1 1 auto; } }
   </style>
 </head>
 <body>
   <div class="app">
-    <header class="topbar"><div class="title-wrap"><h1>DSV Operations Portal</h1></div><nav class="tabs" aria-label="เลือกเครื่องมือ"><button class="tab-btn active" data-target="shipping-panel">Shipping Mark Label Generator</button><button class="tab-btn" data-target="packing-panel">WD Packing List Extractor (Hybrid v2)</button></nav></header>
-    <main class="content"><section id="shipping-panel" class="panel active"><iframe title="Shipping Mark Label Generator" src="DSV_Shipping_Mark_Label_Generator.html"></iframe></section><section id="packing-panel" class="panel"><iframe title="WD Packing List Extractor Hybrid v2" src="WD_PackingList_Extractor_Hybrid.html"></iframe></section></main>
+    <header class="topbar"><div class="title-wrap"><h1>DSV Operations Portal</h1></div><nav class="tabs" aria-label="เลือกเครื่องมือ"><button class="tab-btn active" data-target="shipping-panel">Shipping Mark Label Generator</button><button class="tab-btn" data-target="packing-panel">WD Packing List Extractor (Hybrid v4)</button></nav></header>
+    <main class="content"><section id="shipping-panel" class="panel active"><iframe title="Shipping Mark Label Generator" src="DSV_Shipping_Mark_Label_Generator.html"></iframe></section><section id="packing-panel" class="panel"><iframe title="WD Packing List Extractor Hybrid v4" src="WD_PackingList_Extractor_Hybrid.html"></iframe></section></main>
   </div>
-  <script>const buttons=Array.from(document.querySelectorAll('.tab-btn'));const panels=Array.from(document.querySelectorAll('.panel'));function activate(targetId){buttons.forEach(btn=>btn.classList.toggle('active',btn.dataset.target===targetId));panels.forEach(panel=>panel.classList.toggle('active',panel.id===targetId));}buttons.forEach(btn=>btn.addEventListener('click',()=>activate(btn.dataset.target)));</script>
+  <script>
+    const buttons = Array.from(document.querySelectorAll('.tab-btn'));
+    const panels = Array.from(document.querySelectorAll('.panel'));
+    function activate(targetId) {
+      buttons.forEach(btn => btn.classList.toggle('active', btn.dataset.target === targetId));
+      panels.forEach(panel => panel.classList.toggle('active', panel.id === targetId));
+    }
+    buttons.forEach(btn => btn.addEventListener('click', () => activate(btn.dataset.target)));
+  </script>
 </body>
 </html>
