@@ -17,13 +17,981 @@
     .panel { display:none; height:100%; }
     .panel.active { display:block; }
     iframe { width:100%; height:100%; border:0; background:#fff; }
-    @media (max-width: 900px) { .topbar { align-items:flex-start; flex-direction:column; } .tabs { width:100%; } .tab-btn { flex:1 1 auto; } }
+    @media (max-width: 900px) {
+      .topbar { align-items:flex-start; flex-direction:column; }
+      .tabs { width:100%; }
+      .tab-btn { flex:1 1 auto; }
+    }
   </style>
 </head>
 <body>
   <div class="app">
-    <header class="topbar"><div class="title-wrap"><h1>DSV Operations Portal</h1></div><nav class="tabs" aria-label="เลือกเครื่องมือ"><button class="tab-btn active" data-target="shipping-panel">Shipping Mark Label Generator</button><button class="tab-btn" data-target="packing-panel">WD Packing List Extractor (Hybrid v4)</button></nav></header>
-    <main class="content"><section id="shipping-panel" class="panel active"><iframe title="Shipping Mark Label Generator" src="DSV_Shipping_Mark_Label_Generator.html"></iframe></section><section id="packing-panel" class="panel"><iframe title="WD Packing List Extractor Hybrid v4" src="WD_PackingList_Extractor_Hybrid.html"></iframe></section></main>
+    <header class="topbar">
+      <div class="title-wrap">
+        <h1>DSV Operations Portal</h1>
+      </div>
+      <nav class="tabs" aria-label="เลือกเครื่องมือ">
+        <button class="tab-btn active" data-target="shipping-panel">Shipping Mark Label Generator</button>
+        <button class="tab-btn" data-target="packing-panel">WD Packing List Extractor</button>
+      
+      <button class="tab-btn" data-target="converter-panel">Column / Delimited Converter</button>
+    </nav>
+    </header>
+    <main class="content">
+      <section id="shipping-panel" class="panel active">
+        <iframe title="Shipping Mark Label Generator" srcdoc="&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;th&quot;&gt;
+&lt;head&gt;
+  &lt;meta charset=&quot;UTF-8&quot; /&gt;
+  &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot; /&gt;
+  &lt;title&gt;DSV Shipping Mark Label Generator&lt;/title&gt;
+  &lt;style&gt;
+    :root {
+      --bg: #f5f7fb;
+      --card: #ffffff;
+      --line: #cfd7e4;
+      --line-dark: #aeb8c8;
+      --text: #1f2937;
+      --muted: #5b6475;
+      --primary: #005a9c;
+      --danger: #c0392b;
+      --shadow: 0 6px 18px rgba(0,0,0,.06);
+      --font-main: Tahoma, Arial, sans-serif;
+
+      /* print preview sizes kept from latest requested version */
+      --label-header-size: 22px;
+      --label-title-size: 36px;
+      --label-value-size: 60px;
+      --label-counter-size: 110px;
+      --counter-of-size: 50px;
+
+      --page-width: 210mm;
+      --page-height: 297mm;
+      --label-padding-top: 10mm;
+      --label-padding-side: 14mm;
+      --label-padding-bottom: 10mm;
+      --header-gap: 4mm;
+      --title-to-value-gap: 6mm;
+      --sid-block-to-hbl-title-gap: 10mm;
+      --hbl-title-to-value-gap: 6mm;
+      --counter-lift: 2mm;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      font-family: var(--font-main);
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 440px 1fr;
+      gap: 16px;
+      min-height: 100vh;
+      padding: 16px;
+    }
+
+    .panel, .workspace {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .panel {
+      padding: 18px;
+      position: sticky;
+      top: 16px;
+      height: calc(100vh - 32px);
+      overflow: auto;
+    }
+
+    .workspace { padding: 18px; overflow: auto; }
+
+    h1 { margin: 0 0 8px; font-size: 24px; }
+    h2 { margin: 18px 0 10px; font-size: 16px; }
+    p, li, label, .muted, button, input, td, th, select { font-family: var(--font-main); }
+    p, li, label, .muted { font-size: 14px; line-height: 1.5; color: var(--muted); }
+
+    .btn-row, .toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 700;
+      background: var(--primary);
+      color: #fff;
+    }
+
+    button.secondary {
+      background: #eef4fb;
+      color: #103a5c;
+      border: 1px solid #cfe0f1;
+    }
+
+    button.danger {
+      background: #fdeceb;
+      color: var(--danger);
+      border: 1px solid #f3c4bf;
+    }
+
+    .hint { font-size: 12px; color: var(--muted); }
+
+    .data-grid-wrap {
+      border: 1px solid var(--line-dark);
+      border-radius: 12px;
+      overflow: auto;
+      max-height: 560px;
+      background: #fff;
+      width: 100%;
+    }
+
+    .data-grid {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 14px;
+    }
+
+    .data-grid col.no-col { width: 12%; }
+    .data-grid col.hbl-col { width: 38%; }
+    .data-grid col.sid-col { width: 38%; }
+    .data-grid col.qty-col { width: 12%; }
+
+    .data-grid th,
+    .data-grid td {
+      border: 1px solid var(--line-dark);
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: middle;
+      min-height: 42px;
+      height: 42px;
+      background: #fff;
+    }
+
+    .data-grid thead th {
+      background: #eef3f8;
+      font-weight: 700;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    .row-no {
+      text-align: center;
+      font-weight: 700;
+      background: #fff;
+    }
+
+    .data-cell {
+      outline: none;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .data-cell:focus {
+      background: #fffdf2;
+      box-shadow: inset 0 0 0 2px #f0c85a;
+    }
+
+    .summary {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
+    .summary strong { font-size: 18px; }
+    .summary .muted { margin: 0; }
+
+    .pages {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .page {
+      width: var(--page-width);
+      min-height: var(--page-height);
+      background: white;
+      box-shadow: 0 3px 14px rgba(0,0,0,.08);
+      border: 1px solid #ddd;
+      display: grid;
+      grid-template-rows: 1fr 1fr;
+      overflow: hidden;
+    }
+
+    .label {
+      position: relative;
+      padding: var(--label-padding-top) var(--label-padding-side) var(--label-padding-bottom);
+      display: flex;
+      flex-direction: column;
+      border-bottom: 1px solid #8f8f8f;
+      min-height: 148.5mm;
+    }
+
+    .page .label:last-child { border-bottom: 0; }
+    .label-stack { display: flex; flex-direction: column; height: 100%; justify-content: space-between; }
+    .label-top { display: flex; flex-direction: column; }
+    .label-header { font-size: var(--label-header-size); font-weight: 700; color: #555; line-height: 1.05; margin-bottom: var(--header-gap); }
+    .label-title { font-size: var(--label-title-size); font-weight: 700; line-height: 1.05; margin: 0; }
+    .label-value { font-size: var(--label-value-size); font-weight: 700; line-height: 1.02; word-break: break-word; margin-top: var(--title-to-value-gap); margin-bottom: 0; }
+    .label-title.hbl-title { margin-top: var(--sid-block-to-hbl-title-gap); }
+    .label-value.hbl { margin-top: var(--hbl-title-to-value-gap); }
+    .label-counter {
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      gap: 10mm;
+      margin-top: auto;
+      transform: translateY(calc(-1 * var(--counter-lift)));
+    }
+    .label-counter .counter-num { font-size: var(--label-counter-size); font-weight: 700; line-height: .95; }
+    .label-counter .counter-of { font-size: var(--counter-of-size); font-weight: 700; line-height: 1; }
+
+    @media (max-width: 1250px) {
+      .app { grid-template-columns: 1fr; }
+      .panel { position: static; height: auto; }
+    }
+
+    @media print {
+      body { background: white; }
+      .panel, .summary .toolbar, .no-print { display: none !important; }
+      .app { display: block; padding: 0; }
+      .workspace { padding: 0; border: 0; box-shadow: none; }
+      .summary { display: none !important; }
+      .pages { gap: 0; }
+      .page { margin: 0; border: 0; box-shadow: none; page-break-after: always; }
+      @page { size: A4 portrait; margin: 0; }
+    }
+  &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+  &lt;div class=&quot;app&quot;&gt;
+    &lt;aside class=&quot;panel&quot;&gt;
+      &lt;h1&gt;DSV Shipping Mark Label Generator&lt;/h1&gt;
+
+      &lt;h2&gt;1) วางข้อมูลจาก Excel&lt;/h2&gt;
+      &lt;p&gt;ตารางนี้เชื่อมกับ Print Preview โดยตรงตาม mapping นี้:&lt;/p&gt;
+      &lt;ul&gt;
+        &lt;li&gt;&lt;strong&gt;HBL&lt;/strong&gt; = House Bill Of Lading&lt;/li&gt;
+        &lt;li&gt;&lt;strong&gt;SID&lt;/strong&gt; = Shipment Number / Shipping Mark&lt;/li&gt;
+        &lt;li&gt;&lt;strong&gt;Qty&lt;/strong&gt; = จำนวนที่ใช้สร้าง &lt;strong&gt;x OF y&lt;/strong&gt;&lt;/li&gt;
+      &lt;/ul&gt;
+      &lt;p&gt;วิธีใช้: copy ช่วงข้อมูลจาก Excel (3 คอลัมน์: HBL, SID, Qty) แล้วคลิกที่เซลล์ HBL แถวแรก จากนั้นกด paste ได้ทีเดียวหลายแถว (ระบบจำกัด 30 แถว)&lt;/p&gt;
+
+      &lt;div class=&quot;btn-row&quot; style=&quot;margin-top:10px; margin-bottom:10px;&quot;&gt;
+        &lt;button id=&quot;btnClear&quot; class=&quot;danger&quot;&gt;Clear Table&lt;/button&gt;
+      &lt;/div&gt;
+
+      &lt;div class=&quot;data-grid-wrap&quot;&gt;
+        &lt;table class=&quot;data-grid&quot; id=&quot;dataGrid&quot;&gt;
+          &lt;colgroup&gt;
+            &lt;col class=&quot;no-col&quot; /&gt;
+            &lt;col class=&quot;hbl-col&quot; /&gt;
+            &lt;col class=&quot;sid-col&quot; /&gt;
+            &lt;col class=&quot;qty-col&quot; /&gt;
+          &lt;/colgroup&gt;
+          &lt;thead&gt;
+            &lt;tr&gt;&lt;th&gt;No.&lt;/th&gt;&lt;th&gt;HBL&lt;/th&gt;&lt;th&gt;SID&lt;/th&gt;&lt;th&gt;Qty&lt;/th&gt;&lt;/tr&gt;
+          &lt;/thead&gt;
+          &lt;tbody id=&quot;gridBody&quot;&gt;
+            &lt;tr&gt;&lt;td class=&quot;row-no&quot;&gt;1&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;1&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;2&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;3&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td class=&quot;row-no&quot;&gt;2&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;1&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;2&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;3&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td class=&quot;row-no&quot;&gt;3&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;1&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;2&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;3&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td class=&quot;row-no&quot;&gt;4&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;1&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;2&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;3&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td class=&quot;row-no&quot;&gt;5&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;1&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;2&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;3&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td class=&quot;row-no&quot;&gt;6&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;1&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;2&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;3&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td class=&quot;row-no&quot;&gt;7&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;1&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;2&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;3&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td class=&quot;row-no&quot;&gt;8&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;1&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;2&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;3&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td class=&quot;row-no&quot;&gt;9&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;1&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;2&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;3&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td class=&quot;row-no&quot;&gt;10&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;1&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;2&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;3&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td class=&quot;row-no&quot;&gt;11&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;1&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;2&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;3&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td class=&quot;row-no&quot;&gt;12&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;1&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;2&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;3&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td class=&quot;row-no&quot;&gt;13&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;1&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;2&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;3&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td class=&quot;row-no&quot;&gt;14&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;1&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;2&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;3&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td class=&quot;row-no&quot;&gt;15&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;1&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;2&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;3&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td class=&quot;row-no&quot;&gt;16&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;1&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;2&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;3&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td class=&quot;row-no&quot;&gt;17&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;1&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;2&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;3&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td class=&quot;row-no&quot;&gt;18&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;1&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;2&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;3&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td class=&quot;row-no&quot;&gt;19&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;1&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;2&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;3&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td class=&quot;row-no&quot;&gt;20&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;1&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;2&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;3&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td class=&quot;row-no&quot;&gt;21&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;1&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;2&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;3&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td class=&quot;row-no&quot;&gt;22&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;1&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;2&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;3&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td class=&quot;row-no&quot;&gt;23&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;1&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;2&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;3&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td class=&quot;row-no&quot;&gt;24&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;1&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;2&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;3&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td class=&quot;row-no&quot;&gt;25&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;1&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;2&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;3&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td class=&quot;row-no&quot;&gt;26&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;1&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;2&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;3&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td class=&quot;row-no&quot;&gt;27&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;1&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;2&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;3&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td class=&quot;row-no&quot;&gt;28&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;1&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;2&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;3&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td class=&quot;row-no&quot;&gt;29&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;1&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;2&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;3&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td class=&quot;row-no&quot;&gt;30&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;1&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;2&quot;&gt;&lt;/td&gt;&lt;td class=&quot;data-cell&quot; contenteditable=&quot;true&quot; data-col=&quot;3&quot;&gt;&lt;/td&gt;&lt;/tr&gt;
+          &lt;/tbody&gt;
+        &lt;/table&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;hint&quot;&gt;ถ้า paste มาจาก Excel แบบ Tab-delimited ระบบจะกระจายค่าลงหลายแถวและหลายคอลัมน์ให้อัตโนมัติ&lt;/div&gt;
+    &lt;/aside&gt;
+
+    &lt;main class=&quot;workspace&quot;&gt;
+      &lt;div class=&quot;summary&quot;&gt;
+        &lt;div&gt;&lt;strong&gt;Print Preview&lt;/strong&gt;&lt;p id=&quot;summaryText&quot; class=&quot;muted&quot;&gt;ยังไม่ได้ generate&lt;/p&gt;&lt;/div&gt;
+        &lt;div class=&quot;toolbar no-print&quot;&gt;
+          &lt;button id=&quot;btnGenerateTop&quot;&gt;Generate Labels&lt;/button&gt;
+          &lt;button id=&quot;btnPrintTop&quot; class=&quot;secondary&quot;&gt;Print&lt;/button&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+      &lt;div id=&quot;pages&quot; class=&quot;pages&quot;&gt;&lt;/div&gt;
+    &lt;/main&gt;
+  &lt;/div&gt;
+
+  &lt;script&gt;
+    const $ = (id) =&gt; document.getElementById(id);
+    const fixedHeader = &#x27;DSV · Shipping Mark&#x27;;
+    const defaultRows = 30;
+
+    function escapeHtml(val) {
+      return String(val ?? &#x27;&#x27;)
+        .replaceAll(&#x27;&amp;&#x27;, &#x27;&amp;amp;&#x27;).replaceAll(&#x27;&lt;&#x27;, &#x27;&amp;lt;&#x27;).replaceAll(&#x27;&gt;&#x27;, &#x27;&amp;gt;&#x27;)
+        .replaceAll(&#x27;&quot;&#x27;, &#x27;&amp;quot;&#x27;).replaceAll(&quot;&#x27;&quot;, &#x27;&amp;#39;&#x27;);
+    }
+
+    function bindGridEvents() {
+      $(&#x27;gridBody&#x27;).querySelectorAll(&#x27;.data-cell&#x27;).forEach((cell) =&gt; {
+        cell.addEventListener(&#x27;paste&#x27;, handlePaste);
+      });
+    }
+
+    function getCellPosition(cell) {
+      return {
+        row: cell.parentElement.rowIndex - 1,
+        col: parseInt(cell.dataset.col || &#x27;1&#x27;, 10)
+      };
+    }
+
+    function normalizeClipboard(text) {
+      const lines = text.replace(/\r/g, &#x27;&#x27;).split(&#x27;\n&#x27;).filter(line =&gt; line.length &gt; 0);
+      return lines.map(line =&gt; line.split(&#x27;\t&#x27;));
+    }
+
+    function handlePaste(e) {
+      e.preventDefault();
+      const text = (e.clipboardData || window.clipboardData).getData(&#x27;text&#x27;);
+      const matrix = normalizeClipboard(text);
+      if (!matrix.length) return;
+
+      const start = getCellPosition(e.currentTarget);
+      const rows = Array.from($(&#x27;gridBody&#x27;).children);
+
+      matrix.forEach((line, rIdx) =&gt; {
+        const targetRowIndex = start.row + rIdx;
+        if (targetRowIndex &gt;= defaultRows) return;
+        const cells = rows[targetRowIndex].querySelectorAll(&#x27;.data-cell&#x27;);
+        for (let cIdx = 0; cIdx &lt; 3; cIdx++) {
+          const targetCol = start.col + cIdx;
+          if (targetCol &gt; 3) break;
+          cells[targetCol - 1].textContent = (line[cIdx] ?? &#x27;&#x27;).trim();
+        }
+      });
+    }
+
+    function clearTable() {
+      $(&#x27;gridBody&#x27;).querySelectorAll(&#x27;.data-cell&#x27;).forEach((cell) =&gt; { cell.textContent = &#x27;&#x27;; });
+      $(&#x27;pages&#x27;).innerHTML = &#x27;&#x27;;
+      $(&#x27;summaryText&#x27;).textContent = &#x27;ยังไม่ได้ generate&#x27;;
+    }
+
+    function readRows() {
+      const rows = [];
+      Array.from($(&#x27;gridBody&#x27;).children).forEach((tr) =&gt; {
+        const cells = tr.querySelectorAll(&#x27;.data-cell&#x27;);
+        const hbl = cells[0]?.textContent.trim() || &#x27;&#x27;;
+        const sid = cells[1]?.textContent.trim() || &#x27;&#x27;;
+        const qtyText = cells[2]?.textContent.trim() || &#x27;&#x27;;
+        const qty = parseInt(qtyText, 10) || 0;
+        if (hbl || sid || qtyText) rows.push({ hbl, sid, qty });
+      });
+      return rows;
+    }
+
+    function validateRows(rows) {
+      if (!rows.length) return { ok: false };
+      for (const row of rows) {
+        if (!row.hbl || !row.sid || !Number.isFinite(Number(row.qty)) || Number(row.qty) &lt;= 0) {
+          return { ok: false };
+        }
+      }
+      return { ok: true };
+    }
+
+    function createLabel(row, index) {
+      return `&lt;section class=&quot;label&quot;&gt;&lt;div class=&quot;label-stack&quot;&gt;&lt;div class=&quot;label-top&quot;&gt;&lt;div class=&quot;label-header&quot;&gt;${escapeHtml(fixedHeader)}&lt;/div&gt;&lt;div class=&quot;label-title&quot;&gt;Shipment Number / Shipping Mark :&lt;/div&gt;&lt;div class=&quot;label-value sid&quot;&gt;${escapeHtml(row.sid)}&lt;/div&gt;&lt;div class=&quot;label-title hbl-title&quot;&gt;House Bill Of Lading :&lt;/div&gt;&lt;div class=&quot;label-value hbl&quot;&gt;${escapeHtml(row.hbl)}&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;label-counter&quot;&gt;&lt;span class=&quot;counter-num&quot;&gt;${index}&lt;/span&gt;&lt;span class=&quot;counter-of&quot;&gt;OF&lt;/span&gt;&lt;span class=&quot;counter-num&quot;&gt;${row.qty}&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/section&gt;`;
+    }
+
+    function generateLabels() {
+      const rows = readRows();
+      const check = validateRows(rows);
+      if (!check.ok) {
+        $(&#x27;pages&#x27;).innerHTML = &#x27;&#x27;;
+        $(&#x27;summaryText&#x27;).textContent = &#x27;ยังไม่ได้ generate&#x27;;
+        return;
+      }
+      const labels = [];
+      rows.forEach((row) =&gt; {
+        for (let i = 1; i &lt;= row.qty; i++) labels.push(createLabel(row, i));
+      });
+      const pages = [];
+      for (let i = 0; i &lt; labels.length; i += 2) {
+        pages.push(`&lt;div class=&quot;page&quot;&gt;${labels[i] || &#x27;&lt;section class=&quot;label&quot;&gt;&lt;/section&gt;&#x27;}${labels[i + 1] || &#x27;&lt;section class=&quot;label&quot;&gt;&lt;/section&gt;&#x27;}&lt;/div&gt;`);
+      }
+      $(&#x27;pages&#x27;).innerHTML = pages.join(&#x27;&#x27;);
+      $(&#x27;summaryText&#x27;).textContent = `ข้อมูล ${rows.length} แถว · label ${labels.length} ป้าย · ${pages.length} หน้า`;
+    }
+
+    function printLabels() {
+      generateLabels();
+      const previousTitle = document.title;
+      document.title = &#x27;Shipping mark T.&#x27;;
+      setTimeout(() =&gt; {
+        window.print();
+        setTimeout(() =&gt; { document.title = previousTitle; }, 800);
+      }, 100);
+    }
+
+    $(&#x27;btnClear&#x27;).addEventListener(&#x27;click&#x27;, clearTable);
+    $(&#x27;btnGenerateTop&#x27;).addEventListener(&#x27;click&#x27;, generateLabels);
+    $(&#x27;btnPrintTop&#x27;).addEventListener(&#x27;click&#x27;, printLabels);
+
+    bindGridEvents();
+  &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+"></iframe>
+      </section>
+      <section id="packing-panel" class="panel">
+        <iframe title="WD Packing List Extractor" srcdoc="&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;th&quot;&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;UTF-8&quot;&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;&gt;
+&lt;title&gt;WD Packing List Extractor&lt;/title&gt;
+&lt;style&gt;
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; background: #f5f5f5; color: #222; min-height: 100vh; padding: 2rem; }
+  .container { max-width: 860px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 2rem; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+  h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #666; margin-bottom: 1.5rem; }
+  #drop-zone {
+    border: 2px dashed #ccc; border-radius: 10px; padding: 2.5rem;
+    text-align: center; cursor: pointer; transition: background 0.15s, border-color 0.15s;
+    background: #fafafa; margin-bottom: 1.25rem;
+  }
+  #drop-zone:hover, #drop-zone.drag-over { background: #eef4ff; border-color: #4a90d9; }
+  #drop-zone .icon { font-size: 36px; margin-bottom: 8px; }
+  #drop-zone p { font-weight: 500; margin-bottom: 4px; }
+  #drop-zone small { color: #888; font-size: 12px; }
+  #file-input { display: none; }
+  .file-tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #f0f0f0; border: 1px solid #ddd;
+    border-radius: 6px; padding: 4px 10px; font-size: 12px; margin: 3px;
+  }
+  .remove-btn { cursor: pointer; color: #aaa; font-size: 14px; }
+  .remove-btn:hover { color: #e44; }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+  button {
+    padding: 8px 18px; border-radius: 7px; border: 1px solid #ccc;
+    cursor: pointer; font-size: 14px; font-weight: 500;
+    background: #fff; color: #333; transition: background 0.1s;
+  }
+  button:hover { background: #f5f5f5; }
+  button.primary { background: #222; color: #fff; border-color: #222; }
+  button.primary:hover { background: #444; }
+  button.export { background: #1a6e36; color: #fff; border-color: #1a6e36; }
+  button.export:hover { background: #24924a; }
+  button:disabled { opacity: 0.35; cursor: not-allowed; }
+  #status { font-size: 13px; color: #666; margin-top: 6px; min-height: 20px; }
+  #results-section { margin-top: 1.5rem; }
+  .section-label { font-size: 12px; color: #999; margin-bottom: 8px; }
+  .badge { display: inline-block; background: #e6f4ea; color: #1a6e36; font-size: 11px; padding: 2px 8px; border-radius: 5px; margin-left: 6px; }
+  .table-wrap { overflow-x: auto; border: 1px solid #e0e0e0; border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 9px 12px; background: #f5f5f5; border-bottom: 1px solid #e0e0e0; font-weight: 600; color: #555; white-space: nowrap; }
+  td { padding: 7px 12px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; word-break: break-word; }
+  tr:last-child td { border-bottom: none; }
+  tr.group-first td { border-top: 2px solid #ddd; }
+  tr.group-first:first-child td { border-top: none; }
+  .note { font-size: 12px; color: #888; margin-top: 8px; }
+  /* Modal */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.35); z-index: 100;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: #fff; border-radius: 12px; padding: 1.5rem 2rem;
+    width: 420px; max-width: 95vw; box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  }
+  .modal-box h2 { font-size: 15px; font-weight: 600; margin-bottom: 1rem; }
+  .filename-row {
+    display: flex; align-items: center; gap: 0;
+    border: 1px solid #ccc; border-radius: 7px; overflow: hidden;
+    font-size: 13px; margin-bottom: 1rem;
+  }
+  .filename-prefix {
+    background: #f0f0f0; padding: 8px 10px;
+    color: #555; white-space: nowrap; border-right: 1px solid #ccc;
+  }
+  .filename-suffix {
+    flex: 1; padding: 8px 10px; border: none; outline: none;
+    font-size: 13px; font-family: inherit;
+  }
+  .filename-ext {
+    background: #f0f0f0; padding: 8px 10px;
+    color: #888; white-space: nowrap; border-left: 1px solid #ccc;
+  }
+  .modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
+&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;div class=&quot;container&quot;&gt;
+  &lt;h1&gt;📦 WD Packing List Extractor&lt;/h1&gt;
+  &lt;p class=&quot;subtitle&quot;&gt;อัปโหลด PDF หลายไฟล์พร้อมกัน แล้ว export ข้อมูล Shipment &amp; Pallet ID เป็น Excel (.csv)&lt;/p&gt;
+
+  &lt;div id=&quot;drop-zone&quot; onclick=&quot;document.getElementById(&#x27;file-input&#x27;).click()&quot;&gt;
+    &lt;div class=&quot;icon&quot;&gt;📄&lt;/div&gt;
+    &lt;p&gt;คลิกหรือลาก PDF มาวางที่นี่&lt;/p&gt;
+    &lt;small&gt;รองรับหลายไฟล์พร้อมกัน (.pdf)&lt;/small&gt;
+  &lt;/div&gt;
+  &lt;input type=&quot;file&quot; id=&quot;file-input&quot; accept=&quot;.pdf&quot; multiple&gt;
+
+  &lt;div id=&quot;file-list&quot; style=&quot;margin-bottom: 1rem;&quot;&gt;&lt;/div&gt;
+
+  &lt;div class=&quot;btn-row&quot;&gt;
+    &lt;button class=&quot;primary&quot; id=&quot;extract-btn&quot; disabled onclick=&quot;extractAll()&quot;&gt;▶ ดึงข้อมูล&lt;/button&gt;
+    &lt;button class=&quot;export&quot; id=&quot;export-btn&quot; disabled onclick=&quot;openExportModal()&quot;&gt;⬇ Export Excel (.xlsx)&lt;/button&gt;
+    &lt;button onclick=&quot;clearAll()&quot;&gt;ล้างทั้งหมด&lt;/button&gt;
+  &lt;/div&gt;
+  &lt;div id=&quot;status&quot;&gt;&lt;/div&gt;
+
+  &lt;div id=&quot;results-section&quot; style=&quot;display:none;&quot;&gt;
+    &lt;p class=&quot;section-label&quot;&gt;ผลลัพธ์ &lt;span id=&quot;row-count&quot; class=&quot;badge&quot;&gt;&lt;/span&gt;&lt;/p&gt;
+    &lt;div class=&quot;table-wrap&quot;&gt;
+      &lt;table&gt;
+        &lt;thead&gt;
+          &lt;tr&gt;
+            &lt;th&gt;Shipment Number / Shipping Mark&lt;/th&gt;
+            &lt;th&gt;Marks &amp;amp; Pallet ID / Package ID&lt;/th&gt;
+          &lt;/tr&gt;
+        &lt;/thead&gt;
+        &lt;tbody id=&quot;results-body&quot;&gt;&lt;/tbody&gt;
+      &lt;/table&gt;
+    &lt;/div&gt;
+    &lt;p class=&quot;note&quot;&gt;* ไฟล์ .xlsx เปิดได้ใน Microsoft Excel ได้เลย&lt;/p&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+
+&lt;!-- Export filename modal --&gt;
+&lt;div class=&quot;modal-overlay&quot; id=&quot;export-modal&quot;&gt;
+  &lt;div class=&quot;modal-box&quot;&gt;
+    &lt;h2&gt;💾 ตั้งชื่อไฟล์ก่อน Export&lt;/h2&gt;
+    &lt;div class=&quot;filename-row&quot;&gt;
+      &lt;span class=&quot;filename-prefix&quot; id=&quot;filename-prefix&quot;&gt;&lt;/span&gt;
+      &lt;input class=&quot;filename-suffix&quot; id=&quot;filename-suffix&quot; type=&quot;text&quot; placeholder=&quot;กรอกส่วนท้าย...&quot; /&gt;
+      &lt;span class=&quot;filename-ext&quot;&gt;.xlsx&lt;/span&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;modal-btns&quot;&gt;
+      &lt;button onclick=&quot;closeModal()&quot;&gt;ยกเลิก&lt;/button&gt;
+      &lt;button class=&quot;export&quot; onclick=&quot;confirmExport()&quot;&gt;⬇ Export&lt;/button&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+
+&lt;script src=&quot;https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js&quot;&gt;&lt;/script&gt;
+&lt;script src=&quot;https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+pdfjsLib.GlobalWorkerOptions.workerSrc = &#x27;https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js&#x27;;
+
+let files = [];
+let results = [];
+
+const dropZone = document.getElementById(&#x27;drop-zone&#x27;);
+const fileInput = document.getElementById(&#x27;file-input&#x27;);
+const fileList = document.getElementById(&#x27;file-list&#x27;);
+const extractBtn = document.getElementById(&#x27;extract-btn&#x27;);
+const exportBtn = document.getElementById(&#x27;export-btn&#x27;);
+const status = document.getElementById(&#x27;status&#x27;);
+
+dropZone.addEventListener(&#x27;dragover&#x27;, e =&gt; { e.preventDefault(); dropZone.classList.add(&#x27;drag-over&#x27;); });
+dropZone.addEventListener(&#x27;dragleave&#x27;, () =&gt; dropZone.classList.remove(&#x27;drag-over&#x27;));
+dropZone.addEventListener(&#x27;drop&#x27;, e =&gt; {
+  e.preventDefault();
+  dropZone.classList.remove(&#x27;drag-over&#x27;);
+  addFiles([...e.dataTransfer.files].filter(f =&gt; f.type === &#x27;application/pdf&#x27;));
+});
+fileInput.addEventListener(&#x27;change&#x27;, e =&gt; { addFiles([...e.target.files]); fileInput.value = &#x27;&#x27;; });
+
+function addFiles(newFiles) {
+  newFiles.forEach(f =&gt; { if (!files.find(x =&gt; x.name === f.name)) files.push(f); });
+  renderFileList();
+}
+
+function renderFileList() {
+  fileList.innerHTML = &#x27;&#x27;;
+  files.forEach((f, i) =&gt; {
+    const tag = document.createElement(&#x27;span&#x27;);
+    tag.className = &#x27;file-tag&#x27;;
+    tag.innerHTML = `📄 ${f.name} &lt;span class=&quot;remove-btn&quot; onclick=&quot;removeFile(${i})&quot;&gt;✕&lt;/span&gt;`;
+    fileList.appendChild(tag);
+  });
+  extractBtn.disabled = files.length === 0;
+  if (files.length === 0) {
+    document.getElementById(&#x27;results-section&#x27;).style.display = &#x27;none&#x27;;
+    exportBtn.disabled = true;
+    results = [];
+  }
+}
+
+function removeFile(i) { files.splice(i, 1); renderFileList(); }
+
+function clearAll() {
+  files = []; results = [];
+  renderFileList();
+  status.textContent = &#x27;&#x27;;
+  document.getElementById(&#x27;results-section&#x27;).style.display = &#x27;none&#x27;;
+  exportBtn.disabled = true;
+}
+
+async function extractItemsFromPDF(file) {
+  const ab = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+  const allItems = [];
+  let yOffset = 0;
+  for (let pageNum = 1; pageNum &lt;= pdf.numPages; pageNum++) {
+    const page = await pdf.getPage(pageNum);
+    const content = await page.getTextContent();
+    const viewport = page.getViewport({ scale: 1 });
+    const pageH = viewport.height;
+    content.items.forEach(item =&gt; {
+      if (!item.str.trim()) return;
+      const x = item.transform[4];
+      const y = pageH - item.transform[5];
+      allItems.push({ str: item.str.trim(), x, y: y + yOffset });
+    });
+    yOffset += pageH;
+  }
+  return allItems;
+}
+
+function isNoiseStr(s) {
+  if (/^QTY/i.test(s)) return true;
+  if (/^\d+$/.test(s)) return true;
+  if (/^(TH|COO|Seq|Lin|Part|Order|Customer|DN|Customs|Marks|Package|Pallet|Net|Weight|Line|Count|ID)$/i.test(s)) return true;
+  if (/^(Package ID|Pallet ID|Marks &amp; Pallet|Package ID\s*)$/i.test(s)) return true;
+  if (/^Page\s+\d+\s+of\s+\d+/i.test(s)) return true;
+  if (/Org\s*ID|LTHLC|LTTHC/i.test(s)) return true;
+  if (/^Marks\s*&amp;\s*Pallet/i.test(s)) return true;
+  if (/Delivery Order|Packing List|Invoice Number|Invoice Date|Scheduled Ship/i.test(s)) return true;
+  if (/Print date|UTC Date/i.test(s)) return true;
+  if (/Page\s*\d|Org\s*ID|Marks\s*&amp;|Pallet\s*ID\s*\//i.test(s)) return true;
+  return false;
+}
+
+function parseSingleShipment(items, shipmentNum) {
+  // หา header คอลัมน์ &quot;Marks &amp; Pallet ID&quot;
+  let colX = null, colY = null;
+  for (const item of items) {
+    if (item.str.includes(&#x27;Marks&#x27;) || item.str.includes(&#x27;Package ID&#x27;)) {
+      colX = item.x;
+      colY = item.y;
+      break;
+    }
+  }
+  if (colX === null) return [{ shipment: shipmentNum, palletId: &#x27;-&#x27; }];
+
+  // หาขอบขวาของคอลัมน์
+  let nextColX = colX + 130;
+  for (const item of items) {
+    if ((item.str === &#x27;Qty&#x27; || item.str === &#x27;QTY&#x27;) &amp;&amp; item.y &lt; colY + 40) {
+      nextColX = item.x;
+      break;
+    }
+  }
+
+  // หาจุดหยุด (Total Value หรือ NOTE)
+  let stopY = Infinity;
+  for (const item of items) {
+    if ((item.str.includes(&#x27;Total Value&#x27;) || item.str === &#x27;NOTE:&#x27; || item.str === &#x27;NOTE&#x27;) &amp;&amp; item.y &gt; colY) {
+      if (item.y &lt; stopY) stopY = item.y;
+    }
+  }
+
+  const colItems = items
+    .filter(item =&gt; {
+      if (item.y &lt;= colY + 10) return false;
+      if (item.y &gt;= stopY) return false;
+      if (item.x &lt; colX - 30 || item.x &gt; nextColX - 5) return false;
+      return !isNoiseStr(item.str);
+    })
+    .sort((a, b) =&gt; a.y - b.y);
+
+  let combined = &#x27;&#x27;;
+  for (let i = 0; i &lt; colItems.length; i++) {
+    combined += (i === 0) ? colItems[i].str : colItems[i].str;
+  }
+
+  const rawIds = combined.split(&#x27;,&#x27;).map(s =&gt; s.trim()).filter(s =&gt; s.length &gt;= 3);
+  const filtered = rawIds.filter(s =&gt; {
+    if (/^\d+$/.test(s)) return false;
+    if (/^(TH|QTY|COO)$/i.test(s)) return false;
+    if (/^(Package ID|Pallet ID|Package|Pallet|Marks|ID)$/i.test(s)) return false;
+    if (s.length &lt; 5) return false;
+    return true;
+  });
+
+  const uniqueIds = [...new Set(filtered)];
+  if (uniqueIds.length === 0) return [{ shipment: shipmentNum, palletId: &#x27;-&#x27; }];
+  return uniqueIds.map(id =&gt; ({ shipment: shipmentNum, palletId: id }));
+}
+
+function parseData(items, filename) {
+  const shipmentPattern = /^\d{8}-\d{5}$/;
+
+  // รวบรวม items ทั้งหมดที่เป็น shipment number pattern
+  const allShipmentItems = items.filter(it =&gt; shipmentPattern.test(it.str.trim()));
+
+  // ใช้ y ที่น้อยที่สุดของแต่ละ unique shipment number (= หน้าแรกที่ปรากฏ = หน้าที่มีตาราง)
+  // หน้า barcode และหน้าอื่นๆ ที่ซ้ำจะมี y มากกว่าเสมอ
+  const seenNums = new Map();
+  for (const it of allShipmentItems) {
+    const num = it.str.trim();
+    if (!seenNums.has(num) || it.y &lt; seenNums.get(num)) {
+      seenNums.set(num, it.y);
+    }
+  }
+
+  const shipmentAnchors = [];
+  for (const [num, y] of seenNums.entries()) {
+    shipmentAnchors.push({ num, y });
+  }
+  shipmentAnchors.sort((a, b) =&gt; a.y - b.y);
+
+  // ถ้าไม่เจอเลย
+  if (shipmentAnchors.length === 0) {
+    const fullText = items.map(i =&gt; i.str).join(&#x27; &#x27;);
+    const m = fullText.match(/(\d{8}-\d{5})/);
+    return parseSingleShipment(items, m ? m[1] : &#x27;-&#x27;);
+  }
+
+  // shipment เดียว
+  if (shipmentAnchors.length === 1) {
+    return parseSingleShipment(items, shipmentAnchors[0].num);
+  }
+
+  // หลาย shipments: boundary = y ของ anchor ถัดไป - buffer
+  // เราใช้ y ที่น้อยสุดของแต่ละ shipment แล้ว จึงไม่มีปัญหา barcode page ปน
+  const allResults = [];
+  for (let i = 0; i &lt; shipmentAnchors.length; i++) {
+    const startY = shipmentAnchors[i].y - 200; // buffer จับ header เหนือ shipment number
+    const endY = i + 1 &lt; shipmentAnchors.length
+      ? shipmentAnchors[i + 1].y - 200
+      : Infinity;
+    const segment = items.filter(item =&gt; item.y &gt;= startY &amp;&amp; item.y &lt; endY);
+    allResults.push(...parseSingleShipment(segment, shipmentAnchors[i].num));
+  }
+
+  return allResults;
+}
+
+async function extractAll() {
+  results = [];
+  status.textContent = &#x27;กำลังดึงข้อมูล...&#x27;;
+  extractBtn.disabled = true;
+  document.getElementById(&#x27;results-section&#x27;).style.display = &#x27;none&#x27;;
+
+  for (let i = 0; i &lt; files.length; i++) {
+    status.textContent = `กำลังอ่านไฟล์ ${i + 1}/${files.length}: ${files[i].name}`;
+    try {
+      const items = await extractItemsFromPDF(files[i]);
+      results.push(...parseData(items, files[i].name));
+    } catch(e) {
+      results.push({ shipment: &#x27;Error&#x27;, palletId: e.message });
+    }
+  }
+
+  renderResults();
+  extractBtn.disabled = false;
+  status.textContent = `เสร็จสิ้น — พบข้อมูล ${results.length} แถว`;
+}
+
+function renderResults() {
+  const tbody = document.getElementById(&#x27;results-body&#x27;);
+  tbody.innerHTML = &#x27;&#x27;;
+  results.forEach((r, idx) =&gt; {
+    const tr = document.createElement(&#x27;tr&#x27;);
+    const isFirst = idx === 0 || results[idx - 1].shipment !== r.shipment;
+    tr.className = isFirst ? &#x27;group-first&#x27; : &#x27;group-cont&#x27;;
+    tr.innerHTML = `&lt;td&gt;${r.shipment}&lt;/td&gt;&lt;td&gt;${r.palletId}&lt;/td&gt;`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById(&#x27;row-count&#x27;).textContent = `${results.length} รายการ`;
+  document.getElementById(&#x27;results-section&#x27;).style.display = &#x27;block&#x27;;
+  exportBtn.disabled = results.length === 0;
+}
+
+function getDatePrefix() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, &#x27;0&#x27;);
+  const d = String(now.getDate()).padStart(2, &#x27;0&#x27;);
+  return `${y}${m}${d} - T.`;
+}
+
+function openExportModal() {
+  document.getElementById(&#x27;filename-prefix&#x27;).textContent = getDatePrefix();
+  document.getElementById(&#x27;filename-suffix&#x27;).value = &#x27;&#x27;;
+  document.getElementById(&#x27;export-modal&#x27;).classList.add(&#x27;open&#x27;);
+  setTimeout(() =&gt; document.getElementById(&#x27;filename-suffix&#x27;).focus(), 50);
+}
+
+function closeModal() {
+  document.getElementById(&#x27;export-modal&#x27;).classList.remove(&#x27;open&#x27;);
+}
+
+// กด Enter ใน input = confirm
+document.addEventListener(&#x27;DOMContentLoaded&#x27;, () =&gt; {
+  document.getElementById(&#x27;filename-suffix&#x27;).addEventListener(&#x27;keydown&#x27;, e =&gt; {
+    if (e.key === &#x27;Enter&#x27;) confirmExport();
+    if (e.key === &#x27;Escape&#x27;) closeModal();
+  });
+  // คลิก overlay ด้านนอก = ปิด
+  document.getElementById(&#x27;export-modal&#x27;).addEventListener(&#x27;click&#x27;, e =&gt; {
+    if (e.target === document.getElementById(&#x27;export-modal&#x27;)) closeModal();
+  });
+});
+
+function confirmExport() {
+  const prefix = document.getElementById(&#x27;filename-prefix&#x27;).textContent;
+  const suffix = document.getElementById(&#x27;filename-suffix&#x27;).value.trim();
+  const filename = prefix + suffix + &#x27;.xlsx&#x27;;
+  closeModal();
+  doExport(filename);
+}
+
+function doExport(filename) {
+  const header = [&#x27;Shipment Number / Shipping Mark&#x27;, &#x27;Marks &amp; Pallet ID / Package ID&#x27;];
+  const rows = results.map(r =&gt; [r.shipment, r.palletId]);
+
+  const col1Texts = [header[0], ...rows.map(r =&gt; r[0])];
+  const col2Texts = [header[1], ...rows.map(r =&gt; r[1])];
+  const col1Width = Math.max(...col1Texts.map(s =&gt; String(s).length)) + 2;
+  const col2Width = Math.max(...col2Texts.map(s =&gt; String(s).length)) + 2;
+
+  const wsData = [header, ...rows];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  ws[&#x27;!cols&#x27;] = [{ wch: col1Width }, { wch: col2Width }];
+
+  const headerStyle = { font: { bold: true }, fill: { fgColor: { rgb: &#x27;F5F5F5&#x27; } } };
+  [&#x27;A1&#x27;, &#x27;B1&#x27;].forEach(cell =&gt; {
+    if (ws[cell]) ws[cell].s = headerStyle;
+  });
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, &#x27;Packing List&#x27;);
+  XLSX.writeFile(wb, filename);
+}
+&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+"></iframe>
+      </section>
+    
+      <section id="converter-panel" class="panel">
+        <iframe title="Column / Delimited Converter" srcdoc="&lt;!DOCTYPE html&gt;&lt;html lang=&quot;th&quot;&gt;&lt;head&gt;&lt;meta charset=&quot;UTF-8&quot; /&gt;&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot; /&gt;&lt;title&gt;Column / Delimited Converter&lt;/title&gt;&lt;style&gt;* { box-sizing: border-box; }
+:root { --bg: linear-gradient(180deg, #f4f6f8 0%, #edf1f5 100%); --card: rgba(255, 255, 255, 0.92); --border: #cfd6dd; --soft-border: #d8e0e7; --title: #1494d3; --text: #233746; --muted: #778392; --primary: #1398d7; --primary-dark: #0a80ba; --danger: #ff4f2e; --danger-dark: #ed3818; --shadow: 0 18px 45px rgba(36, 55, 70, 0.12); --editor-height: 490px; --row-height: 28px; --row-text-size: 16px; }
+html, body { min-height: 100%; }
+body { margin: 0; font-family: &quot;Segoe UI&quot;, Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--text); }
+.page-shell { min-height: 100vh; padding: 24px 20px 28px; }
+.hero-bar { max-width: 1720px; margin: 0 auto 18px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.hero-badge { background: rgba(20, 148, 211, 0.08); color: var(--title); border: 1px solid rgba(20, 148, 211, 0.16); border-radius: 999px; padding: 10px 18px; font-weight: 600; letter-spacing: 0.25px; }
+.hero-subtitle { color: var(--muted); font-size: 15px; }
+.app-card { max-width: 1720px; margin: 0 auto; background: var(--card); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.65); border-radius: 28px; box-shadow: var(--shadow); padding: 24px 22px; }
+.main-grid { display: grid; grid-template-columns: minmax(0, 1fr) 220px minmax(0, 1fr); gap: 24px; align-items: start; }
+.panel { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.title { margin: 0; text-align: center; color: var(--title); font-size: clamp(2rem, 3vw, 3rem); font-weight: 300; letter-spacing: 0.3px; }
+.editor-wrap { display: grid; grid-template-columns: 104px minmax(0, 1fr); height: var(--editor-height); border: 1px solid var(--border); border-radius: 18px; overflow: hidden; background: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75), 0 10px 28px rgba(34, 48, 64, 0.07); }
+.editor-wrap-right { position: relative; }
+.gutter { overflow: hidden; user-select: none; border-right: 1px solid var(--soft-border); font-variant-numeric: tabular-nums; background: #fff; }
+.gutter-line { height: var(--row-height); line-height: var(--row-height); display: flex; align-items: center; justify-content: center; padding: 0 10px; font-size: var(--row-text-size); color: #8fa0ad; border-bottom: 1px solid var(--soft-border); }
+.gutter-line:nth-child(odd) { background: #eef5fc; }
+.gutter-line:nth-child(even) { background: #ffffff; }
+.editor-content { position: relative; min-width: 0; }
+textarea { width: 100%; height: 100%; border: 0; outline: none; resize: none; padding: 0 16px; background: #ffffff; color: #15202b; font-family: Consolas, &quot;Courier New&quot;, monospace; font-size: var(--row-text-size); line-height: var(--row-height); overflow: auto; white-space: pre; overflow-wrap: normal; word-break: normal; }
+#rightText { padding-right: 98px; }
+.controls { display: flex; flex-direction: column; align-items: stretch; gap: 14px; padding-top: 74px; }
+.control-label { display: block; margin-bottom: 8px; color: var(--muted); font-size: 14px; font-weight: 600; }
+.delimiter-box { width: 100%; }
+select { width: 100%; height: 64px; border-radius: 16px; border: 1px solid var(--border); background: linear-gradient(180deg, #f1f3f6 0%, #e7eaee 100%); font-size: 24px; text-align: center; color: #495965; outline: none; cursor: pointer; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9); }
+.btn { width: 100%; min-height: 64px; border: none; border-radius: 18px; cursor: pointer; color: #fff; display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 14px 16px; font-weight: 700; letter-spacing: 0.2px; transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease; box-shadow: 0 12px 24px rgba(13, 143, 204, 0.18); }
+.btn:hover { transform: translateY(-2px); filter: saturate(1.02); }
+.btn:active { transform: translateY(0); }
+.btn-blue { background: linear-gradient(180deg, var(--primary) 0%, var(--primary-dark) 100%); }
+.btn-outline { background: linear-gradient(180deg, #23a9e7 0%, #0d8bc5 100%); }
+.btn-red { background: linear-gradient(180deg, var(--danger) 0%, var(--danger-dark) 100%); box-shadow: 0 12px 24px rgba(255, 75, 43, 0.22); }
+.btn-icon { font-size: 24px; line-height: 1; }
+.btn-text { font-size: 15px; }
+.select-copy-btn { position: absolute; top: 8px; right: 8px; z-index: 2; min-width: 86px; height: 56px; border: 1px dashed #82aff3; background: rgba(247, 247, 247, 0.98); color: #0b8dcc; font-size: 18px; cursor: pointer; transition: background 0.15s ease, transform 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
+.select-copy-btn:hover { background: #eef6ff; transform: translateY(-1px); }
+.select-copy-btn.copied { background: #0b8dcc; color: #fff; border-color: #0b8dcc; border-style: solid; }
+.select-copy-btn.failed { background: #fff3cd; color: #8a6d3b; border-color: #f0c36d; border-style: solid; }
+@media (max-width: 1240px) { :root { --editor-height: 460px; --row-height: 26px; } .main-grid { grid-template-columns: 1fr; } .controls { padding-top: 0; flex-direction: row; flex-wrap: wrap; justify-content: center; } .delimiter-box { flex: 1 1 220px; min-width: 220px; } .btn { flex: 1 1 200px; min-width: 190px; } }
+@media (max-width: 768px) { :root { --editor-height: 400px; --row-height: 24px; --row-text-size: 14px; } .page-shell { padding: 16px; } .app-card { padding: 18px 14px; border-radius: 22px; } .title { font-size: 1.9rem; } .select-copy-btn { min-width: 72px; height: 48px; } }&lt;/style&gt;&lt;/head&gt;&lt;body&gt;&lt;div class=&quot;page-shell&quot;&gt;&lt;header class=&quot;hero-bar&quot;&gt;&lt;div class=&quot;hero-badge&quot;&gt;Text Converter&lt;/div&gt;&lt;div class=&quot;hero-subtitle&quot;&gt;Convert column data to delimited text and back again&lt;/div&gt;&lt;/header&gt;&lt;main class=&quot;app-card&quot;&gt;&lt;div class=&quot;main-grid&quot;&gt;&lt;section class=&quot;panel&quot;&gt;&lt;h1 class=&quot;title&quot;&gt;Column Data Here...&lt;/h1&gt;&lt;div class=&quot;editor-wrap&quot;&gt;&lt;div class=&quot;gutter&quot; id=&quot;leftGutter&quot; aria-hidden=&quot;true&quot;&gt;&lt;/div&gt;&lt;textarea id=&quot;leftText&quot; wrap=&quot;off&quot; spellcheck=&quot;false&quot;&gt;&lt;/textarea&gt;&lt;/div&gt;&lt;/section&gt;&lt;section class=&quot;controls&quot;&gt;&lt;div class=&quot;delimiter-box&quot;&gt;&lt;label class=&quot;control-label&quot; for=&quot;delimiterSelect&quot;&gt;Delimiter&lt;/label&gt;&lt;select id=&quot;delimiterSelect&quot; title=&quot;Choose delimiter&quot;&gt;&lt;option value=&quot;,&quot;&gt;,&lt;/option&gt;&lt;option value=&quot;;&quot;&gt;;&lt;/option&gt;&lt;option value=&quot;|&quot;&gt;|&lt;/option&gt;&lt;option value=&quot; &quot;&gt;Spaces&lt;/option&gt;&lt;option value=&quot;
+&quot;&gt;New Line&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;button class=&quot;btn btn-blue&quot; id=&quot;toDelimited&quot; title=&quot;Convert Column to Delimited&quot;&gt;&lt;span class=&quot;btn-icon&quot;&gt;❯&lt;/span&gt;&lt;span class=&quot;btn-text&quot;&gt;To Delimited&lt;/span&gt;&lt;/button&gt;&lt;button class=&quot;btn btn-blue btn-outline&quot; id=&quot;toColumn&quot; title=&quot;Convert Delimited to Column&quot;&gt;&lt;span class=&quot;btn-icon&quot;&gt;❮&lt;/span&gt;&lt;span class=&quot;btn-text&quot;&gt;To Column&lt;/span&gt;&lt;/button&gt;&lt;button class=&quot;btn btn-red&quot; id=&quot;clearAll&quot; title=&quot;Clear all&quot;&gt;&lt;span class=&quot;btn-icon&quot;&gt;✕&lt;/span&gt;&lt;span class=&quot;btn-text&quot;&gt;Clear&lt;/span&gt;&lt;/button&gt;&lt;/section&gt;&lt;section class=&quot;panel&quot;&gt;&lt;h1 class=&quot;title&quot;&gt;Delimited Data Here...&lt;/h1&gt;&lt;div class=&quot;editor-wrap editor-wrap-right&quot;&gt;&lt;div class=&quot;gutter&quot; id=&quot;rightGutter&quot; aria-hidden=&quot;true&quot;&gt;&lt;/div&gt;&lt;div class=&quot;editor-content&quot;&gt;&lt;button class=&quot;select-copy-btn&quot; id=&quot;selectCopyBtn&quot; type=&quot;button&quot; title=&quot;Select and copy all output text&quot;&gt;Select&lt;/button&gt;&lt;textarea id=&quot;rightText&quot; wrap=&quot;off&quot; spellcheck=&quot;false&quot;&gt;&lt;/textarea&gt;&lt;/div&gt;&lt;/div&gt;&lt;/section&gt;&lt;/div&gt;&lt;/main&gt;&lt;/div&gt;&lt;script&gt;const MIN_LINES = 20;
+const leftText = document.getElementById(&quot;leftText&quot;);
+const rightText = document.getElementById(&quot;rightText&quot;);
+const leftGutter = document.getElementById(&quot;leftGutter&quot;);
+const rightGutter = document.getElementById(&quot;rightGutter&quot;);
+const delimiterSelect = document.getElementById(&quot;delimiterSelect&quot;);
+const toDelimitedBtn = document.getElementById(&quot;toDelimited&quot;);
+const toColumnBtn = document.getElementById(&quot;toColumn&quot;);
+const clearAllBtn = document.getElementById(&quot;clearAll&quot;);
+const selectCopyBtn = document.getElementById(&quot;selectCopyBtn&quot;);
+function getDelimiter() { return delimiterSelect.value; }
+function getVisibleLineCount(textarea) { const value = textarea.value.replace(/\r/g, &quot;&quot;); const actualLines = value.length ? value.split(&quot;\n&quot;).length : 1; return Math.max(MIN_LINES, actualLines); }
+function updateGutter(textarea, gutter) { const lineCount = getVisibleLineCount(textarea); let html = &quot;&quot;; for (let i = 1; i &lt;= lineCount; i += 1) html += `&lt;div class=&quot;gutter-line&quot;&gt;${i}&lt;/div&gt;`; gutter.innerHTML = html; gutter.scrollTop = textarea.scrollTop; }
+function syncScroll(textarea, gutter) { gutter.scrollTop = textarea.scrollTop; }
+function normalizeColumnInput(value) { return value.split(/\r?\n/).map((item) =&gt; item.trim()).filter((item) =&gt; item !== &quot;&quot;); }
+function columnToDelimited() { const delimiter = getDelimiter(); const items = normalizeColumnInput(leftText.value); rightText.value = delimiter === &quot;\n&quot; ? items.join(&quot;\n&quot;) : items.join(delimiter); updateGutter(rightText, rightGutter); }
+function delimitedToColumn() { const delimiter = getDelimiter(); const raw = rightText.value.trim(); if (!raw) { leftText.value = &quot;&quot;; updateGutter(leftText, leftGutter); return; } let items = []; if (delimiter === &quot;\n&quot;) items = raw.split(/\r?\n/).map((item) =&gt; item.trim()).filter((item) =&gt; item !== &quot;&quot;); else if (delimiter === &quot; &quot;) items = raw.split(/\s+/).map((item) =&gt; item.trim()).filter((item) =&gt; item !== &quot;&quot;); else items = raw.split(delimiter).map((item) =&gt; item.trim()).filter((item) =&gt; item !== &quot;&quot;); leftText.value = items.join(&quot;\n&quot;); updateGutter(leftText, leftGutter); }
+function clearAll() { leftText.value = &quot;&quot;; rightText.value = &quot;&quot;; updateGutter(leftText, leftGutter); updateGutter(rightText, rightGutter); leftText.focus(); }
+function fallbackCopyText(text) { const helper = document.createElement(&quot;textarea&quot;); helper.value = text; helper.setAttribute(&quot;readonly&quot;, &quot;&quot;); helper.style.position = &quot;fixed&quot;; helper.style.top = &quot;-9999px&quot;; helper.style.left = &quot;-9999px&quot;; helper.style.opacity = &quot;0&quot;; document.body.appendChild(helper); helper.focus(); helper.select(); helper.setSelectionRange(0, helper.value.length); const copied = document.execCommand(&quot;copy&quot;); document.body.removeChild(helper); if (!copied) throw new Error(&quot;Fallback copy failed&quot;); }
+function setSelectButtonState(state) { selectCopyBtn.classList.remove(&quot;copied&quot;, &quot;failed&quot;); if (state === &quot;copied&quot;) { selectCopyBtn.textContent = &quot;Copied!&quot;; selectCopyBtn.classList.add(&quot;copied&quot;); } else if (state === &quot;failed&quot;) { selectCopyBtn.textContent = &quot;Select&quot;; selectCopyBtn.classList.add(&quot;failed&quot;); } else { selectCopyBtn.textContent = &quot;Select&quot;; } }
+async function selectAndCopyOutput() { const text = rightText.value; rightText.focus(); rightText.select(); rightText.setSelectionRange(0, text.length); if (!text) { setSelectButtonState(&quot;failed&quot;); window.setTimeout(() =&gt; setSelectButtonState(&quot;default&quot;), 1200); return; } try { if (navigator.clipboard &amp;&amp; window.isSecureContext) await navigator.clipboard.writeText(text); else fallbackCopyText(text); setSelectButtonState(&quot;copied&quot;); } catch (error) { console.error(error); setSelectButtonState(&quot;failed&quot;); } window.setTimeout(() =&gt; setSelectButtonState(&quot;default&quot;), 1500); }
+leftText.addEventListener(&quot;input&quot;, () =&gt; updateGutter(leftText, leftGutter));
+rightText.addEventListener(&quot;input&quot;, () =&gt; updateGutter(rightText, rightGutter));
+leftText.addEventListener(&quot;scroll&quot;, () =&gt; syncScroll(leftText, leftGutter));
+rightText.addEventListener(&quot;scroll&quot;, () =&gt; syncScroll(rightText, rightGutter));
+toDelimitedBtn.addEventListener(&quot;click&quot;, columnToDelimited);
+toColumnBtn.addEventListener(&quot;click&quot;, delimitedToColumn);
+clearAllBtn.addEventListener(&quot;click&quot;, clearAll);
+selectCopyBtn.addEventListener(&quot;click&quot;, selectAndCopyOutput);
+updateGutter(leftText, leftGutter);
+updateGutter(rightText, rightGutter);&lt;/script&gt;&lt;/body&gt;&lt;/html&gt;"></iframe>
+      </section>
+    </main>
   </div>
   <script>
     const buttons = Array.from(document.querySelectorAll('.tab-btn'));
