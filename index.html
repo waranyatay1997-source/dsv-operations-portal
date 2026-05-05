@@ -27,19 +27,15 @@
 <body>
   <div class="app">
     <header class="topbar">
-      <div class="title-wrap">
-        <h1>DSV Operations Portal</h1>
-      </div>
+      <div class="title-wrap"><h1>DSV Operations Portal</h1></div>
       <nav class="tabs" aria-label="เลือกเครื่องมือ">
         <button class="tab-btn active" data-target="shipping-panel">Shipping Mark Label Generator</button>
         <button class="tab-btn" data-target="packing-panel">WD Packing List Extractor</button>
-      
-      <button class="tab-btn" data-target="converter-panel">Column / Delimited Converter</button>
-    </nav>
+        <button class="tab-btn" data-target="converter-panel">Column / Delimited Converter</button>
+      </nav>
     </header>
     <main class="content">
-      <section id="shipping-panel" class="panel active">
-        <iframe title="Shipping Mark Label Generator" srcdoc="&lt;!DOCTYPE html&gt;
+      <section id="shipping-panel" class="panel active"><iframe title="Shipping Mark Label Generator" srcdoc="&lt;!DOCTYPE html&gt;
 &lt;html lang=&quot;th&quot;&gt;
 &lt;head&gt;
   &lt;meta charset=&quot;UTF-8&quot; /&gt;
@@ -478,10 +474,8 @@
   &lt;/script&gt;
 &lt;/body&gt;
 &lt;/html&gt;
-"></iframe>
-      </section>
-      <section id="packing-panel" class="panel">
-        <iframe title="WD Packing List Extractor" srcdoc="&lt;!DOCTYPE html&gt;
+"></iframe></section>
+      <section id="packing-panel" class="panel"><iframe title="WD Packing List Extractor" srcdoc="&lt;!DOCTYPE html&gt;
 &lt;html lang=&quot;th&quot;&gt;
 &lt;head&gt;
 &lt;meta charset=&quot;UTF-8&quot;&gt;
@@ -689,130 +683,182 @@ async function extractItemsFromPDF(file) {
       if (!item.str.trim()) return;
       const x = item.transform[4];
       const y = pageH - item.transform[5];
-      allItems.push({ str: item.str.trim(), x, y: y + yOffset });
+      allItems.push({ str: item.str.trim(), x, y: y + yOffset, page: pageNum });
     });
     yOffset += pageH;
   }
   return allItems;
 }
 
-function isNoiseStr(s) {
-  if (/^QTY/i.test(s)) return true;
-  if (/^\d+$/.test(s)) return true;
-  if (/^(TH|COO|Seq|Lin|Part|Order|Customer|DN|Customs|Marks|Package|Pallet|Net|Weight|Line|Count|ID)$/i.test(s)) return true;
-  if (/^(Package ID|Pallet ID|Marks &amp; Pallet|Package ID\s*)$/i.test(s)) return true;
-  if (/^Page\s+\d+\s+of\s+\d+/i.test(s)) return true;
-  if (/Org\s*ID|LTHLC|LTTHC/i.test(s)) return true;
-  if (/^Marks\s*&amp;\s*Pallet/i.test(s)) return true;
-  if (/Delivery Order|Packing List|Invoice Number|Invoice Date|Scheduled Ship/i.test(s)) return true;
-  if (/Print date|UTC Date/i.test(s)) return true;
-  if (/Page\s*\d|Org\s*ID|Marks\s*&amp;|Pallet\s*ID\s*\//i.test(s)) return true;
-  return false;
+function normalizeSpaces(text) {
+  return String(text || &#x27;&#x27;).replace(/\s+/g, &#x27; &#x27;).trim();
+}
+
+function groupItemsIntoLines(items, yTolerance = 3) {
+  const sorted = [...items].sort((a, b) =&gt; a.y - b.y || a.x - b.x);
+  const lines = [];
+  sorted.forEach(item =&gt; {
+    const last = lines[lines.length - 1];
+    if (!last || Math.abs(item.y - last.y) &gt; yTolerance) {
+      lines.push({ y: item.y, items: [item] });
+    } else {
+      last.items.push(item);
+    }
+  });
+  return lines.map(line =&gt; ({
+    y: line.y,
+    text: normalizeSpaces(line.items.sort((a, b) =&gt; a.x - b.x).map(it =&gt; it.str).join(&#x27; &#x27;))
+  }));
+}
+
+function extractShipmentNumbers(items) {
+  const shipmentPattern = /\b\d{8}-\d{5}\b/g;
+  const seen = new Map();
+  items.forEach(item =&gt; {
+    const matches = item.str.match(shipmentPattern);
+    if (!matches) return;
+    matches.forEach(num =&gt; {
+      if (!seen.has(num) || item.y &lt; seen.get(num)) seen.set(num, item.y);
+    });
+  });
+  return [...seen.entries()].map(([num, y]) =&gt; ({ num, y })).sort((a, b) =&gt; a.y - b.y);
+}
+
+function cleanToken(token) {
+  return token.replace(/^[^A-Z0-9]+/i, &#x27;&#x27;).replace(/[^A-Z0-9-]+$/i, &#x27;&#x27;).trim();
+}
+
+function isDateLike(token) {
+  const t = cleanToken(token).toUpperCase();
+  return /^\d{1,2}-[A-Z]{3}-\d{2,4}$/.test(t)
+    || /^\d{1,2}\/[A-Z]{3}\/\d{2,4}$/.test(t)
+    || /^\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}$/.test(t)
+    || /^(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)-\d{2,4}$/.test(t);
+}
+
+function isLikelyPalletCode(token) {
+  const t = cleanToken(token);
+  if (!t || t.length &lt; 5 || t.length &gt; 24) return false;
+  if (!/[A-Z]/i.test(t) || !/\d/.test(t)) return false;
+  if (/^\d+(?:\.\d+)?$/.test(t)) return false;
+  if (isDateLike(t)) return false;
+  if (/^\d{8}-\d{5}$/.test(t)) return false;
+  if (/^5635-S-/i.test(t)) return false;
+  if (/^0B\d+/i.test(t)) return false;
+  if (/^RH\d/i.test(t)) return false;
+  if (/^(TH|EA|EACH|PALLET|PACKAGE|QTY|KG|CM)$/i.test(t)) return false;
+  return true;
+}
+
+function extractCandidateCodes(text) {
+  if (!text) return [];
+  const normalized = normalizeSpaces(text)
+    .replace(/\bNet Weight\b/ig, &#x27; &#x27;)
+    .replace(/\bPackage Count\b/ig, &#x27; &#x27;)
+    .replace(/\bCustoms Description\b/ig, &#x27; &#x27;)
+    .replace(/\bMarks\s*&amp;\s*Pallet ID\s*\/\s*Package ID\b/ig, &#x27; &#x27;)
+    .replace(/\bLine\b/ig, &#x27; &#x27;)
+    .replace(/\bCOO\b/ig, &#x27; &#x27;)
+    .replace(/\bDN\s*#\b/ig, &#x27; &#x27;)
+    .replace(/\bQty\b/ig, &#x27; &#x27;)
+    .replace(/\bQTY:\s*[\d,]+/ig, &#x27; &#x27;)
+    .replace(/\bScheduled Ship Date\b/ig, &#x27; &#x27;)
+    .replace(/\bInvoice Date\b/ig, &#x27; &#x27;)
+    .replace(/\b\d+(?:\.\d{2,})\b/g, &#x27; &#x27;);
+  const raw = normalized.split(/[\s,;|]+/).map(cleanToken).filter(Boolean);
+  const ids = [];
+  raw.forEach(token =&gt; {
+    if (isLikelyPalletCode(token) &amp;&amp; !ids.includes(token)) ids.push(token);
+  });
+  return ids;
+}
+
+function parseSingleShipmentByColumns(items) {
+  let colX = null, colY = null;
+  for (const item of items) {
+    if (item.str.includes(&#x27;Marks&#x27;) &amp;&amp; (item.str.includes(&#x27;Package ID&#x27;) || item.str.includes(&#x27;Pallet ID&#x27;))) {
+      colX = item.x; colY = item.y; break;
+    }
+  }
+  if (colX === null) return [];
+  let nextColX = colX + 260;
+  for (const item of items) {
+    if (/^(Qty|QTY)$/i.test(normalizeSpaces(item.str)) &amp;&amp; Math.abs(item.y - colY) &lt; 40 &amp;&amp; item.x &gt; colX) {
+      nextColX = item.x; break;
+    }
+  }
+  let stopY = Infinity;
+  for (const item of items) {
+    if ((item.str.includes(&#x27;Total Value&#x27;) || item.str.includes(&#x27;Total Net Weight&#x27;) || item.str === &#x27;NOTE:&#x27; || item.str === &#x27;NOTE&#x27;) &amp;&amp; item.y &gt; colY) {
+      stopY = Math.min(stopY, item.y);
+    }
+  }
+  const colItems = items.filter(item =&gt; item.y &gt; colY + 6 &amp;&amp; item.y &lt; stopY &amp;&amp; item.x &gt;= colX - 15 &amp;&amp; item.x &lt;= nextColX)
+    .sort((a, b) =&gt; a.y - b.y || a.x - b.x);
+  return extractCandidateCodes(colItems.map(item =&gt; item.str).join(&#x27; &#x27;));
+}
+
+function parseShipmentByHeaderBlocks(items) {
+  const headerRegex = /Marks\s*&amp;\s*Pallet ID\s*\/\s*Package ID/i;
+  const stopRegex = /(Total Value|NOTE:|Total Net Weight|Phone Shipment Number|Delivery Order and Packing List Page|EXPORT NOTICE|CERTIFIED TRUE)/i;
+  const blocks = [];
+  let collecting = false;
+  let buffer = [];
+  const flush = () =&gt; { if (buffer.length) { blocks.push(buffer.join(&#x27; &#x27;)); buffer = []; } };
+  groupItemsIntoLines(items).forEach(line =&gt; {
+    const text = normalizeSpaces(line.text);
+    if (!text) return;
+    if (headerRegex.test(text)) {
+      if (collecting) flush();
+      collecting = true;
+      const afterHeader = text.replace(headerRegex, &#x27;&#x27;).trim();
+      if (afterHeader) buffer.push(afterHeader);
+      return;
+    }
+    if (collecting) {
+      if (stopRegex.test(text)) { flush(); collecting = false; return; }
+      buffer.push(text);
+    }
+  });
+  flush();
+  const ids = [];
+  blocks.forEach(block =&gt; extractCandidateCodes(block).forEach(code =&gt; { if (!ids.includes(code)) ids.push(code); }));
+  return ids;
+}
+
+function parseShipmentByQtyFallback(items) {
+  const ids = [];
+  groupItemsIntoLines(items).forEach(line =&gt; {
+    if (!/QTY:/i.test(line.text)) return;
+    extractCandidateCodes(line.text).forEach(code =&gt; { if (!ids.includes(code)) ids.push(code); });
+  });
+  return ids;
+}
+
+function parseShipmentByGlobalText(items) {
+  const fullText = normalizeSpaces(groupItemsIntoLines(items).map(line =&gt; line.text).join(&#x27; &#x27;));
+  const match = fullText.match(/Marks\s*&amp;\s*Pallet ID\s*\/\s*Package ID(.*?)(?:Total Value|NOTE:|Total Net Weight|Phone Shipment Number|$)/i);
+  return match ? extractCandidateCodes(match[1] || &#x27;&#x27;) : [];
 }
 
 function parseSingleShipment(items, shipmentNum) {
-  // หา header คอลัมน์ &quot;Marks &amp; Pallet ID&quot;
-  let colX = null, colY = null;
-  for (const item of items) {
-    if (item.str.includes(&#x27;Marks&#x27;) || item.str.includes(&#x27;Package ID&#x27;)) {
-      colX = item.x;
-      colY = item.y;
-      break;
-    }
-  }
-  if (colX === null) return [{ shipment: shipmentNum, palletId: &#x27;-&#x27; }];
-
-  // หาขอบขวาของคอลัมน์
-  let nextColX = colX + 130;
-  for (const item of items) {
-    if ((item.str === &#x27;Qty&#x27; || item.str === &#x27;QTY&#x27;) &amp;&amp; item.y &lt; colY + 40) {
-      nextColX = item.x;
-      break;
-    }
-  }
-
-  // หาจุดหยุด (Total Value หรือ NOTE)
-  let stopY = Infinity;
-  for (const item of items) {
-    if ((item.str.includes(&#x27;Total Value&#x27;) || item.str === &#x27;NOTE:&#x27; || item.str === &#x27;NOTE&#x27;) &amp;&amp; item.y &gt; colY) {
-      if (item.y &lt; stopY) stopY = item.y;
-    }
-  }
-
-  const colItems = items
-    .filter(item =&gt; {
-      if (item.y &lt;= colY + 10) return false;
-      if (item.y &gt;= stopY) return false;
-      if (item.x &lt; colX - 30 || item.x &gt; nextColX - 5) return false;
-      return !isNoiseStr(item.str);
-    })
-    .sort((a, b) =&gt; a.y - b.y);
-
-  let combined = &#x27;&#x27;;
-  for (let i = 0; i &lt; colItems.length; i++) {
-    combined += (i === 0) ? colItems[i].str : colItems[i].str;
-  }
-
-  const rawIds = combined.split(&#x27;,&#x27;).map(s =&gt; s.trim()).filter(s =&gt; s.length &gt;= 3);
-  const filtered = rawIds.filter(s =&gt; {
-    if (/^\d+$/.test(s)) return false;
-    if (/^(TH|QTY|COO)$/i.test(s)) return false;
-    if (/^(Package ID|Pallet ID|Package|Pallet|Marks|ID)$/i.test(s)) return false;
-    if (s.length &lt; 5) return false;
-    return true;
-  });
-
-  const uniqueIds = [...new Set(filtered)];
-  if (uniqueIds.length === 0) return [{ shipment: shipmentNum, palletId: &#x27;-&#x27; }];
-  return uniqueIds.map(id =&gt; ({ shipment: shipmentNum, palletId: id }));
+  const ids = [];
+  [parseSingleShipmentByColumns(items), parseShipmentByHeaderBlocks(items), parseShipmentByQtyFallback(items), parseShipmentByGlobalText(items)]
+    .forEach(list =&gt; list.forEach(code =&gt; { if (!ids.includes(code)) ids.push(code); }));
+  return ids.length ? ids.map(code =&gt; ({ shipment: shipmentNum, palletId: code })) : [{ shipment: shipmentNum, palletId: &#x27;-&#x27; }];
 }
 
-function parseData(items, filename) {
-  const shipmentPattern = /^\d{8}-\d{5}$/;
-
-  // รวบรวม items ทั้งหมดที่เป็น shipment number pattern
-  const allShipmentItems = items.filter(it =&gt; shipmentPattern.test(it.str.trim()));
-
-  // ใช้ y ที่น้อยที่สุดของแต่ละ unique shipment number (= หน้าแรกที่ปรากฏ = หน้าที่มีตาราง)
-  // หน้า barcode และหน้าอื่นๆ ที่ซ้ำจะมี y มากกว่าเสมอ
-  const seenNums = new Map();
-  for (const it of allShipmentItems) {
-    const num = it.str.trim();
-    if (!seenNums.has(num) || it.y &lt; seenNums.get(num)) {
-      seenNums.set(num, it.y);
-    }
-  }
-
-  const shipmentAnchors = [];
-  for (const [num, y] of seenNums.entries()) {
-    shipmentAnchors.push({ num, y });
-  }
-  shipmentAnchors.sort((a, b) =&gt; a.y - b.y);
-
-  // ถ้าไม่เจอเลย
-  if (shipmentAnchors.length === 0) {
-    const fullText = items.map(i =&gt; i.str).join(&#x27; &#x27;);
-    const m = fullText.match(/(\d{8}-\d{5})/);
-    return parseSingleShipment(items, m ? m[1] : &#x27;-&#x27;);
-  }
-
-  // shipment เดียว
-  if (shipmentAnchors.length === 1) {
-    return parseSingleShipment(items, shipmentAnchors[0].num);
-  }
-
-  // หลาย shipments: boundary = y ของ anchor ถัดไป - buffer
-  // เราใช้ y ที่น้อยสุดของแต่ละ shipment แล้ว จึงไม่มีปัญหา barcode page ปน
+function parseData(items) {
+  const shipmentAnchors = extractShipmentNumbers(items);
+  if (shipmentAnchors.length === 0) return [{ shipment: &#x27;-&#x27;, palletId: &#x27;-&#x27; }];
+  if (shipmentAnchors.length === 1) return parseSingleShipment(items, shipmentAnchors[0].num);
   const allResults = [];
   for (let i = 0; i &lt; shipmentAnchors.length; i++) {
-    const startY = shipmentAnchors[i].y - 200; // buffer จับ header เหนือ shipment number
-    const endY = i + 1 &lt; shipmentAnchors.length
-      ? shipmentAnchors[i + 1].y - 200
-      : Infinity;
+    const startY = shipmentAnchors[i].y - 220;
+    const endY = i + 1 &lt; shipmentAnchors.length ? shipmentAnchors[i + 1].y - 180 : Infinity;
     const segment = items.filter(item =&gt; item.y &gt;= startY &amp;&amp; item.y &lt; endY);
     allResults.push(...parseSingleShipment(segment, shipmentAnchors[i].num));
   }
-
   return allResults;
 }
 
@@ -821,17 +867,15 @@ async function extractAll() {
   status.textContent = &#x27;กำลังดึงข้อมูล...&#x27;;
   extractBtn.disabled = true;
   document.getElementById(&#x27;results-section&#x27;).style.display = &#x27;none&#x27;;
-
   for (let i = 0; i &lt; files.length; i++) {
     status.textContent = `กำลังอ่านไฟล์ ${i + 1}/${files.length}: ${files[i].name}`;
     try {
       const items = await extractItemsFromPDF(files[i]);
-      results.push(...parseData(items, files[i].name));
-    } catch(e) {
+      results.push(...parseData(items));
+    } catch (e) {
       results.push({ shipment: &#x27;Error&#x27;, palletId: e.message });
     }
   }
-
   renderResults();
   extractBtn.disabled = false;
   status.textContent = `เสร็จสิ้น — พบข้อมูล ${results.length} แถว`;
@@ -859,30 +903,22 @@ function getDatePrefix() {
   const d = String(now.getDate()).padStart(2, &#x27;0&#x27;);
   return `${y}${m}${d} - T.`;
 }
-
 function openExportModal() {
   document.getElementById(&#x27;filename-prefix&#x27;).textContent = getDatePrefix();
   document.getElementById(&#x27;filename-suffix&#x27;).value = &#x27;&#x27;;
   document.getElementById(&#x27;export-modal&#x27;).classList.add(&#x27;open&#x27;);
   setTimeout(() =&gt; document.getElementById(&#x27;filename-suffix&#x27;).focus(), 50);
 }
-
-function closeModal() {
-  document.getElementById(&#x27;export-modal&#x27;).classList.remove(&#x27;open&#x27;);
-}
-
-// กด Enter ใน input = confirm
+function closeModal() { document.getElementById(&#x27;export-modal&#x27;).classList.remove(&#x27;open&#x27;); }
 document.addEventListener(&#x27;DOMContentLoaded&#x27;, () =&gt; {
   document.getElementById(&#x27;filename-suffix&#x27;).addEventListener(&#x27;keydown&#x27;, e =&gt; {
     if (e.key === &#x27;Enter&#x27;) confirmExport();
     if (e.key === &#x27;Escape&#x27;) closeModal();
   });
-  // คลิก overlay ด้านนอก = ปิด
   document.getElementById(&#x27;export-modal&#x27;).addEventListener(&#x27;click&#x27;, e =&gt; {
     if (e.target === document.getElementById(&#x27;export-modal&#x27;)) closeModal();
   });
 });
-
 function confirmExport() {
   const prefix = document.getElementById(&#x27;filename-prefix&#x27;).textContent;
   const suffix = document.getElementById(&#x27;filename-suffix&#x27;).value.trim();
@@ -890,75 +926,249 @@ function confirmExport() {
   closeModal();
   doExport(filename);
 }
-
 function doExport(filename) {
   const header = [&#x27;Shipment Number / Shipping Mark&#x27;, &#x27;Marks &amp; Pallet ID / Package ID&#x27;];
   const rows = results.map(r =&gt; [r.shipment, r.palletId]);
-
   const col1Texts = [header[0], ...rows.map(r =&gt; r[0])];
   const col2Texts = [header[1], ...rows.map(r =&gt; r[1])];
   const col1Width = Math.max(...col1Texts.map(s =&gt; String(s).length)) + 2;
   const col2Width = Math.max(...col2Texts.map(s =&gt; String(s).length)) + 2;
-
   const wsData = [header, ...rows];
   const ws = XLSX.utils.aoa_to_sheet(wsData);
   ws[&#x27;!cols&#x27;] = [{ wch: col1Width }, { wch: col2Width }];
-
   const headerStyle = { font: { bold: true }, fill: { fgColor: { rgb: &#x27;F5F5F5&#x27; } } };
-  [&#x27;A1&#x27;, &#x27;B1&#x27;].forEach(cell =&gt; {
-    if (ws[cell]) ws[cell].s = headerStyle;
-  });
-
+  [&#x27;A1&#x27;, &#x27;B1&#x27;].forEach(cell =&gt; { if (ws[cell]) ws[cell].s = headerStyle; });
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, &#x27;Packing List&#x27;);
   XLSX.writeFile(wb, filename);
 }
+extractBtn.disabled = true;
+exportBtn.disabled = true;
 &lt;/script&gt;
 &lt;/body&gt;
 &lt;/html&gt;
-"></iframe>
-      </section>
-    
-      <section id="converter-panel" class="panel">
-        <iframe title="Column / Delimited Converter" srcdoc="&lt;!DOCTYPE html&gt;&lt;html lang=&quot;th&quot;&gt;&lt;head&gt;&lt;meta charset=&quot;UTF-8&quot; /&gt;&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot; /&gt;&lt;title&gt;Column / Delimited Converter&lt;/title&gt;&lt;style&gt;* { box-sizing: border-box; }
-:root { --bg: linear-gradient(180deg, #f4f6f8 0%, #edf1f5 100%); --card: rgba(255, 255, 255, 0.92); --border: #cfd6dd; --soft-border: #d8e0e7; --title: #1494d3; --text: #233746; --muted: #778392; --primary: #1398d7; --primary-dark: #0a80ba; --danger: #ff4f2e; --danger-dark: #ed3818; --shadow: 0 18px 45px rgba(36, 55, 70, 0.12); --editor-height: 490px; --row-height: 28px; --row-text-size: 16px; }
+"></iframe></section>
+      <section id="converter-panel" class="panel"><iframe title="Column / Delimited Converter" srcdoc="&lt;!DOCTYPE html&gt;&lt;html lang=&quot;th&quot;&gt;&lt;head&gt;&lt;meta charset=&quot;UTF-8&quot; /&gt;&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot; /&gt;&lt;title&gt;Column / Delimited Converter&lt;/title&gt;&lt;style&gt;* { box-sizing: border-box; }
+:root {
+  --bg: linear-gradient(180deg, #f4f6f8 0%, #edf1f5 100%);
+  --card: rgba(255, 255, 255, 0.92);
+  --border: #cfd6dd;
+  --soft-border: #d8e0e7;
+  --title: #1494d3;
+  --text: #233746;
+  --muted: #778392;
+  --primary: #1398d7;
+  --primary-dark: #0a80ba;
+  --danger: #ff4f2e;
+  --danger-dark: #ed3818;
+  --shadow: 0 18px 45px rgba(36, 55, 70, 0.12);
+  --editor-height: 490px;
+  --row-height: 28px;
+  --row-text-size: 16px;
+}
 html, body { min-height: 100%; }
-body { margin: 0; font-family: &quot;Segoe UI&quot;, Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--text); }
+body {
+  margin: 0;
+  font-family: &quot;Segoe UI&quot;, Tahoma, Geneva, Verdana, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
 .page-shell { min-height: 100vh; padding: 24px 20px 28px; }
-.hero-bar { max-width: 1720px; margin: 0 auto 18px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-.hero-badge { background: rgba(20, 148, 211, 0.08); color: var(--title); border: 1px solid rgba(20, 148, 211, 0.16); border-radius: 999px; padding: 10px 18px; font-weight: 600; letter-spacing: 0.25px; }
+.hero-bar {
+  max-width: 1720px;
+  margin: 0 auto 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.hero-badge {
+  background: rgba(20, 148, 211, 0.08);
+  color: var(--title);
+  border: 1px solid rgba(20, 148, 211, 0.16);
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-weight: 600;
+  letter-spacing: 0.25px;
+}
 .hero-subtitle { color: var(--muted); font-size: 15px; }
-.app-card { max-width: 1720px; margin: 0 auto; background: var(--card); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.65); border-radius: 28px; box-shadow: var(--shadow); padding: 24px 22px; }
-.main-grid { display: grid; grid-template-columns: minmax(0, 1fr) 220px minmax(0, 1fr); gap: 24px; align-items: start; }
-.panel { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-.title { margin: 0; text-align: center; color: var(--title); font-size: clamp(2rem, 3vw, 3rem); font-weight: 300; letter-spacing: 0.3px; }
-.editor-wrap { display: grid; grid-template-columns: 104px minmax(0, 1fr); height: var(--editor-height); border: 1px solid var(--border); border-radius: 18px; overflow: hidden; background: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75), 0 10px 28px rgba(34, 48, 64, 0.07); }
+.app-card {
+  max-width: 1720px;
+  margin: 0 auto;
+  background: var(--card);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  border-radius: 28px;
+  box-shadow: var(--shadow);
+  padding: 24px 22px;
+}
+.main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+.title {
+  margin: 0;
+  text-align: center;
+  color: var(--title);
+  font-size: clamp(2rem, 3vw, 3rem);
+  font-weight: 300;
+  letter-spacing: 0.3px;
+}
+.editor-wrap {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  height: var(--editor-height);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75), 0 10px 28px rgba(34, 48, 64, 0.07);
+}
 .editor-wrap-right { position: relative; }
-.gutter { overflow: hidden; user-select: none; border-right: 1px solid var(--soft-border); font-variant-numeric: tabular-nums; background: #fff; }
-.gutter-line { height: var(--row-height); line-height: var(--row-height); display: flex; align-items: center; justify-content: center; padding: 0 10px; font-size: var(--row-text-size); color: #8fa0ad; border-bottom: 1px solid var(--soft-border); }
+.gutter {
+  overflow: hidden;
+  user-select: none;
+  border-right: 1px solid var(--soft-border);
+  font-variant-numeric: tabular-nums;
+  background: #fff;
+}
+.gutter-line {
+  height: var(--row-height);
+  line-height: var(--row-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  font-size: var(--row-text-size);
+  color: #8fa0ad;
+  border-bottom: 1px solid var(--soft-border);
+}
 .gutter-line:nth-child(odd) { background: #eef5fc; }
 .gutter-line:nth-child(even) { background: #ffffff; }
 .editor-content { position: relative; min-width: 0; }
-textarea { width: 100%; height: 100%; border: 0; outline: none; resize: none; padding: 0 16px; background: #ffffff; color: #15202b; font-family: Consolas, &quot;Courier New&quot;, monospace; font-size: var(--row-text-size); line-height: var(--row-height); overflow: auto; white-space: pre; overflow-wrap: normal; word-break: normal; }
+textarea {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  outline: none;
+  resize: none;
+  padding: 0 16px;
+  background: #ffffff;
+  color: #15202b;
+  font-family: Consolas, &quot;Courier New&quot;, monospace;
+  font-size: var(--row-text-size);
+  line-height: var(--row-height);
+  overflow: auto;
+  white-space: pre;
+  overflow-wrap: normal;
+  word-break: normal;
+}
 #rightText { padding-right: 98px; }
-.controls { display: flex; flex-direction: column; align-items: stretch; gap: 14px; padding-top: 74px; }
-.control-label { display: block; margin-bottom: 8px; color: var(--muted); font-size: 14px; font-weight: 600; }
+.controls {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  padding-top: 74px;
+}
+.control-label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
 .delimiter-box { width: 100%; }
-select { width: 100%; height: 64px; border-radius: 16px; border: 1px solid var(--border); background: linear-gradient(180deg, #f1f3f6 0%, #e7eaee 100%); font-size: 24px; text-align: center; color: #495965; outline: none; cursor: pointer; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9); }
-.btn { width: 100%; min-height: 64px; border: none; border-radius: 18px; cursor: pointer; color: #fff; display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 14px 16px; font-weight: 700; letter-spacing: 0.2px; transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease; box-shadow: 0 12px 24px rgba(13, 143, 204, 0.18); }
+select {
+  width: 100%;
+  height: 64px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, #f1f3f6 0%, #e7eaee 100%);
+  font-size: 24px;
+  text-align: center;
+  color: #495965;
+  outline: none;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+.btn {
+  width: 100%;
+  min-height: 64px;
+  border: none;
+  border-radius: 18px;
+  cursor: pointer;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 16px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+  box-shadow: 0 12px 24px rgba(13, 143, 204, 0.18);
+}
 .btn:hover { transform: translateY(-2px); filter: saturate(1.02); }
 .btn:active { transform: translateY(0); }
 .btn-blue { background: linear-gradient(180deg, var(--primary) 0%, var(--primary-dark) 100%); }
 .btn-outline { background: linear-gradient(180deg, #23a9e7 0%, #0d8bc5 100%); }
-.btn-red { background: linear-gradient(180deg, var(--danger) 0%, var(--danger-dark) 100%); box-shadow: 0 12px 24px rgba(255, 75, 43, 0.22); }
+.btn-red {
+  background: linear-gradient(180deg, var(--danger) 0%, var(--danger-dark) 100%);
+  box-shadow: 0 12px 24px rgba(255, 75, 43, 0.22);
+}
 .btn-icon { font-size: 24px; line-height: 1; }
 .btn-text { font-size: 15px; }
-.select-copy-btn { position: absolute; top: 8px; right: 8px; z-index: 2; min-width: 86px; height: 56px; border: 1px dashed #82aff3; background: rgba(247, 247, 247, 0.98); color: #0b8dcc; font-size: 18px; cursor: pointer; transition: background 0.15s ease, transform 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
+.select-copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  min-width: 86px;
+  height: 56px;
+  border: 1px dashed #82aff3;
+  background: rgba(247, 247, 247, 0.98);
+  color: #0b8dcc;
+  font-size: 18px;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
 .select-copy-btn:hover { background: #eef6ff; transform: translateY(-1px); }
-.select-copy-btn.copied { background: #0b8dcc; color: #fff; border-color: #0b8dcc; border-style: solid; }
-.select-copy-btn.failed { background: #fff3cd; color: #8a6d3b; border-color: #f0c36d; border-style: solid; }
-@media (max-width: 1240px) { :root { --editor-height: 460px; --row-height: 26px; } .main-grid { grid-template-columns: 1fr; } .controls { padding-top: 0; flex-direction: row; flex-wrap: wrap; justify-content: center; } .delimiter-box { flex: 1 1 220px; min-width: 220px; } .btn { flex: 1 1 200px; min-width: 190px; } }
-@media (max-width: 768px) { :root { --editor-height: 400px; --row-height: 24px; --row-text-size: 14px; } .page-shell { padding: 16px; } .app-card { padding: 18px 14px; border-radius: 22px; } .title { font-size: 1.9rem; } .select-copy-btn { min-width: 72px; height: 48px; } }&lt;/style&gt;&lt;/head&gt;&lt;body&gt;&lt;div class=&quot;page-shell&quot;&gt;&lt;header class=&quot;hero-bar&quot;&gt;&lt;div class=&quot;hero-badge&quot;&gt;Text Converter&lt;/div&gt;&lt;div class=&quot;hero-subtitle&quot;&gt;Convert column data to delimited text and back again&lt;/div&gt;&lt;/header&gt;&lt;main class=&quot;app-card&quot;&gt;&lt;div class=&quot;main-grid&quot;&gt;&lt;section class=&quot;panel&quot;&gt;&lt;h1 class=&quot;title&quot;&gt;Column Data Here...&lt;/h1&gt;&lt;div class=&quot;editor-wrap&quot;&gt;&lt;div class=&quot;gutter&quot; id=&quot;leftGutter&quot; aria-hidden=&quot;true&quot;&gt;&lt;/div&gt;&lt;textarea id=&quot;leftText&quot; wrap=&quot;off&quot; spellcheck=&quot;false&quot;&gt;&lt;/textarea&gt;&lt;/div&gt;&lt;/section&gt;&lt;section class=&quot;controls&quot;&gt;&lt;div class=&quot;delimiter-box&quot;&gt;&lt;label class=&quot;control-label&quot; for=&quot;delimiterSelect&quot;&gt;Delimiter&lt;/label&gt;&lt;select id=&quot;delimiterSelect&quot; title=&quot;Choose delimiter&quot;&gt;&lt;option value=&quot;,&quot;&gt;,&lt;/option&gt;&lt;option value=&quot;;&quot;&gt;;&lt;/option&gt;&lt;option value=&quot;|&quot;&gt;|&lt;/option&gt;&lt;option value=&quot; &quot;&gt;Spaces&lt;/option&gt;&lt;option value=&quot;
+.select-copy-btn.copied {
+  background: #0b8dcc;
+  color: #fff;
+  border-color: #0b8dcc;
+  border-style: solid;
+}
+.select-copy-btn.failed {
+  background: #fff3cd;
+  color: #8a6d3b;
+  border-color: #f0c36d;
+  border-style: solid;
+}
+@media (max-width: 1240px) {
+  :root { --editor-height: 460px; --row-height: 26px; }
+  .main-grid { grid-template-columns: 1fr; }
+  .controls { padding-top: 0; flex-direction: row; flex-wrap: wrap; justify-content: center; }
+  .delimiter-box { flex: 1 1 220px; min-width: 220px; }
+  .btn { flex: 1 1 200px; min-width: 190px; }
+}
+@media (max-width: 768px) {
+  :root { --editor-height: 400px; --row-height: 24px; --row-text-size: 14px; }
+  .page-shell { padding: 16px; }
+  .app-card { padding: 18px 14px; border-radius: 22px; }
+  .title { font-size: 1.9rem; }
+  .select-copy-btn { min-width: 72px; height: 48px; }
+}&lt;/style&gt;&lt;/head&gt;&lt;body&gt;&lt;div class=&quot;page-shell&quot;&gt;&lt;header class=&quot;hero-bar&quot;&gt;&lt;div class=&quot;hero-badge&quot;&gt;Text Converter&lt;/div&gt;&lt;div class=&quot;hero-subtitle&quot;&gt;Convert column data to delimited text and back again&lt;/div&gt;&lt;/header&gt;&lt;main class=&quot;app-card&quot;&gt;&lt;div class=&quot;main-grid&quot;&gt;&lt;section class=&quot;panel&quot;&gt;&lt;h1 class=&quot;title&quot;&gt;Column Data Here...&lt;/h1&gt;&lt;div class=&quot;editor-wrap&quot;&gt;&lt;div class=&quot;gutter&quot; id=&quot;leftGutter&quot; aria-hidden=&quot;true&quot;&gt;&lt;/div&gt;&lt;textarea id=&quot;leftText&quot; wrap=&quot;off&quot; spellcheck=&quot;false&quot;&gt;&lt;/textarea&gt;&lt;/div&gt;&lt;/section&gt;&lt;section class=&quot;controls&quot;&gt;&lt;div class=&quot;delimiter-box&quot;&gt;&lt;label class=&quot;control-label&quot; for=&quot;delimiterSelect&quot;&gt;Delimiter&lt;/label&gt;&lt;select id=&quot;delimiterSelect&quot; title=&quot;Choose delimiter&quot;&gt;&lt;option value=&quot;,&quot;&gt;,&lt;/option&gt;&lt;option value=&quot;;&quot;&gt;;&lt;/option&gt;&lt;option value=&quot;|&quot;&gt;|&lt;/option&gt;&lt;option value=&quot; &quot;&gt;Spaces&lt;/option&gt;&lt;option value=&quot;
 &quot;&gt;New Line&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;button class=&quot;btn btn-blue&quot; id=&quot;toDelimited&quot; title=&quot;Convert Column to Delimited&quot;&gt;&lt;span class=&quot;btn-icon&quot;&gt;❯&lt;/span&gt;&lt;span class=&quot;btn-text&quot;&gt;To Delimited&lt;/span&gt;&lt;/button&gt;&lt;button class=&quot;btn btn-blue btn-outline&quot; id=&quot;toColumn&quot; title=&quot;Convert Delimited to Column&quot;&gt;&lt;span class=&quot;btn-icon&quot;&gt;❮&lt;/span&gt;&lt;span class=&quot;btn-text&quot;&gt;To Column&lt;/span&gt;&lt;/button&gt;&lt;button class=&quot;btn btn-red&quot; id=&quot;clearAll&quot; title=&quot;Clear all&quot;&gt;&lt;span class=&quot;btn-icon&quot;&gt;✕&lt;/span&gt;&lt;span class=&quot;btn-text&quot;&gt;Clear&lt;/span&gt;&lt;/button&gt;&lt;/section&gt;&lt;section class=&quot;panel&quot;&gt;&lt;h1 class=&quot;title&quot;&gt;Delimited Data Here...&lt;/h1&gt;&lt;div class=&quot;editor-wrap editor-wrap-right&quot;&gt;&lt;div class=&quot;gutter&quot; id=&quot;rightGutter&quot; aria-hidden=&quot;true&quot;&gt;&lt;/div&gt;&lt;div class=&quot;editor-content&quot;&gt;&lt;button class=&quot;select-copy-btn&quot; id=&quot;selectCopyBtn&quot; type=&quot;button&quot; title=&quot;Select and copy all output text&quot;&gt;Select&lt;/button&gt;&lt;textarea id=&quot;rightText&quot; wrap=&quot;off&quot; spellcheck=&quot;false&quot;&gt;&lt;/textarea&gt;&lt;/div&gt;&lt;/div&gt;&lt;/section&gt;&lt;/div&gt;&lt;/main&gt;&lt;/div&gt;&lt;script&gt;const MIN_LINES = 20;
 const leftText = document.getElementById(&quot;leftText&quot;);
 const rightText = document.getElementById(&quot;rightText&quot;);
@@ -970,16 +1180,94 @@ const toColumnBtn = document.getElementById(&quot;toColumn&quot;);
 const clearAllBtn = document.getElementById(&quot;clearAll&quot;);
 const selectCopyBtn = document.getElementById(&quot;selectCopyBtn&quot;);
 function getDelimiter() { return delimiterSelect.value; }
-function getVisibleLineCount(textarea) { const value = textarea.value.replace(/\r/g, &quot;&quot;); const actualLines = value.length ? value.split(&quot;\n&quot;).length : 1; return Math.max(MIN_LINES, actualLines); }
-function updateGutter(textarea, gutter) { const lineCount = getVisibleLineCount(textarea); let html = &quot;&quot;; for (let i = 1; i &lt;= lineCount; i += 1) html += `&lt;div class=&quot;gutter-line&quot;&gt;${i}&lt;/div&gt;`; gutter.innerHTML = html; gutter.scrollTop = textarea.scrollTop; }
+function getVisibleLineCount(textarea) {
+  const value = textarea.value.replace(/\r/g, &quot;&quot;);
+  const actualLines = value.length ? value.split(&quot;\n&quot;).length : 1;
+  return Math.max(MIN_LINES, actualLines);
+}
+function updateGutter(textarea, gutter) {
+  const lineCount = getVisibleLineCount(textarea);
+  let html = &quot;&quot;;
+  for (let i = 1; i &lt;= lineCount; i += 1) html += `&lt;div class=&quot;gutter-line&quot;&gt;${i}&lt;/div&gt;`;
+  gutter.innerHTML = html;
+  gutter.scrollTop = textarea.scrollTop;
+}
 function syncScroll(textarea, gutter) { gutter.scrollTop = textarea.scrollTop; }
-function normalizeColumnInput(value) { return value.split(/\r?\n/).map((item) =&gt; item.trim()).filter((item) =&gt; item !== &quot;&quot;); }
-function columnToDelimited() { const delimiter = getDelimiter(); const items = normalizeColumnInput(leftText.value); rightText.value = delimiter === &quot;\n&quot; ? items.join(&quot;\n&quot;) : items.join(delimiter); updateGutter(rightText, rightGutter); }
-function delimitedToColumn() { const delimiter = getDelimiter(); const raw = rightText.value.trim(); if (!raw) { leftText.value = &quot;&quot;; updateGutter(leftText, leftGutter); return; } let items = []; if (delimiter === &quot;\n&quot;) items = raw.split(/\r?\n/).map((item) =&gt; item.trim()).filter((item) =&gt; item !== &quot;&quot;); else if (delimiter === &quot; &quot;) items = raw.split(/\s+/).map((item) =&gt; item.trim()).filter((item) =&gt; item !== &quot;&quot;); else items = raw.split(delimiter).map((item) =&gt; item.trim()).filter((item) =&gt; item !== &quot;&quot;); leftText.value = items.join(&quot;\n&quot;); updateGutter(leftText, leftGutter); }
-function clearAll() { leftText.value = &quot;&quot;; rightText.value = &quot;&quot;; updateGutter(leftText, leftGutter); updateGutter(rightText, rightGutter); leftText.focus(); }
-function fallbackCopyText(text) { const helper = document.createElement(&quot;textarea&quot;); helper.value = text; helper.setAttribute(&quot;readonly&quot;, &quot;&quot;); helper.style.position = &quot;fixed&quot;; helper.style.top = &quot;-9999px&quot;; helper.style.left = &quot;-9999px&quot;; helper.style.opacity = &quot;0&quot;; document.body.appendChild(helper); helper.focus(); helper.select(); helper.setSelectionRange(0, helper.value.length); const copied = document.execCommand(&quot;copy&quot;); document.body.removeChild(helper); if (!copied) throw new Error(&quot;Fallback copy failed&quot;); }
-function setSelectButtonState(state) { selectCopyBtn.classList.remove(&quot;copied&quot;, &quot;failed&quot;); if (state === &quot;copied&quot;) { selectCopyBtn.textContent = &quot;Copied!&quot;; selectCopyBtn.classList.add(&quot;copied&quot;); } else if (state === &quot;failed&quot;) { selectCopyBtn.textContent = &quot;Select&quot;; selectCopyBtn.classList.add(&quot;failed&quot;); } else { selectCopyBtn.textContent = &quot;Select&quot;; } }
-async function selectAndCopyOutput() { const text = rightText.value; rightText.focus(); rightText.select(); rightText.setSelectionRange(0, text.length); if (!text) { setSelectButtonState(&quot;failed&quot;); window.setTimeout(() =&gt; setSelectButtonState(&quot;default&quot;), 1200); return; } try { if (navigator.clipboard &amp;&amp; window.isSecureContext) await navigator.clipboard.writeText(text); else fallbackCopyText(text); setSelectButtonState(&quot;copied&quot;); } catch (error) { console.error(error); setSelectButtonState(&quot;failed&quot;); } window.setTimeout(() =&gt; setSelectButtonState(&quot;default&quot;), 1500); }
+function normalizeColumnInput(value) {
+  return value.split(/\r?\n/).map((item) =&gt; item.trim()).filter((item) =&gt; item !== &quot;&quot;);
+}
+function columnToDelimited() {
+  const delimiter = getDelimiter();
+  const items = normalizeColumnInput(leftText.value);
+  rightText.value = delimiter === &quot;\n&quot; ? items.join(&quot;\n&quot;) : items.join(delimiter);
+  updateGutter(rightText, rightGutter);
+}
+function delimitedToColumn() {
+  const delimiter = getDelimiter();
+  const raw = rightText.value.trim();
+  if (!raw) { leftText.value = &quot;&quot;; updateGutter(leftText, leftGutter); return; }
+  let items = [];
+  if (delimiter === &quot;\n&quot;) items = raw.split(/\r?\n/).map((item) =&gt; item.trim()).filter((item) =&gt; item !== &quot;&quot;);
+  else if (delimiter === &quot; &quot;) items = raw.split(/\s+/).map((item) =&gt; item.trim()).filter((item) =&gt; item !== &quot;&quot;);
+  else items = raw.split(delimiter).map((item) =&gt; item.trim()).filter((item) =&gt; item !== &quot;&quot;);
+  leftText.value = items.join(&quot;\n&quot;);
+  updateGutter(leftText, leftGutter);
+}
+function clearAll() {
+  leftText.value = &quot;&quot;;
+  rightText.value = &quot;&quot;;
+  updateGutter(leftText, leftGutter);
+  updateGutter(rightText, rightGutter);
+  leftText.focus();
+}
+function fallbackCopyText(text) {
+  const helper = document.createElement(&quot;textarea&quot;);
+  helper.value = text;
+  helper.setAttribute(&quot;readonly&quot;, &quot;&quot;);
+  helper.style.position = &quot;fixed&quot;;
+  helper.style.top = &quot;-9999px&quot;;
+  helper.style.left = &quot;-9999px&quot;;
+  helper.style.opacity = &quot;0&quot;;
+  document.body.appendChild(helper);
+  helper.focus();
+  helper.select();
+  helper.setSelectionRange(0, helper.value.length);
+  const copied = document.execCommand(&quot;copy&quot;);
+  document.body.removeChild(helper);
+  if (!copied) throw new Error(&quot;Fallback copy failed&quot;);
+}
+function setSelectButtonState(state) {
+  selectCopyBtn.classList.remove(&quot;copied&quot;, &quot;failed&quot;);
+  if (state === &quot;copied&quot;) {
+    selectCopyBtn.textContent = &quot;Copied!&quot;;
+    selectCopyBtn.classList.add(&quot;copied&quot;);
+  } else if (state === &quot;failed&quot;) {
+    selectCopyBtn.textContent = &quot;Select&quot;;
+    selectCopyBtn.classList.add(&quot;failed&quot;);
+  } else {
+    selectCopyBtn.textContent = &quot;Select&quot;;
+  }
+}
+async function selectAndCopyOutput() {
+  const text = rightText.value;
+  rightText.focus();
+  rightText.select();
+  rightText.setSelectionRange(0, text.length);
+  if (!text) {
+    setSelectButtonState(&quot;failed&quot;);
+    window.setTimeout(() =&gt; setSelectButtonState(&quot;default&quot;), 1200);
+    return;
+  }
+  try {
+    if (navigator.clipboard &amp;&amp; window.isSecureContext) await navigator.clipboard.writeText(text);
+    else fallbackCopyText(text);
+    setSelectButtonState(&quot;copied&quot;);
+  } catch (error) {
+    console.error(error);
+    setSelectButtonState(&quot;failed&quot;);
+  }
+  window.setTimeout(() =&gt; setSelectButtonState(&quot;default&quot;), 1500);
+}
 leftText.addEventListener(&quot;input&quot;, () =&gt; updateGutter(leftText, leftGutter));
 rightText.addEventListener(&quot;input&quot;, () =&gt; updateGutter(rightText, rightGutter));
 leftText.addEventListener(&quot;scroll&quot;, () =&gt; syncScroll(leftText, leftGutter));
@@ -989,8 +1277,7 @@ toColumnBtn.addEventListener(&quot;click&quot;, delimitedToColumn);
 clearAllBtn.addEventListener(&quot;click&quot;, clearAll);
 selectCopyBtn.addEventListener(&quot;click&quot;, selectAndCopyOutput);
 updateGutter(leftText, leftGutter);
-updateGutter(rightText, rightGutter);&lt;/script&gt;&lt;/body&gt;&lt;/html&gt;"></iframe>
-      </section>
+updateGutter(rightText, rightGutter);&lt;/script&gt;&lt;/body&gt;&lt;/html&gt;"></iframe></section>
     </main>
   </div>
   <script>
