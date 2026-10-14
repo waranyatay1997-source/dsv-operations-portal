@@ -1578,7 +1578,7 @@ function renderResults(){
   let tg=0,tn=0;
   results.forEach((r,i)=>{
     const tr=document.createElement(&#39;tr&#39;);
-    const g=r.gross!==null?r.gross.toFixed(1):null;
+    const g=r.gross!==null?r.gross.toFixed(2):null;
     const n=r.net!==null?r.net.toFixed(2):null;
     tr.innerHTML=
       &#39;<td class=&quot;no&quot;>&#39;+(i+1)+&#39;</td>&#39;+
