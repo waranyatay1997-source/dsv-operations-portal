@@ -31,6 +31,7 @@
       <nav class="tabs" aria-label="เลือกเครื่องมือ">
         <button class="tab-btn active" data-target="shipping-panel">Shipping Mark Label Generator</button>
         <button class="tab-btn" data-target="packing-panel">WD Packing List Extractor</button>
+        <button class="tab-btn" data-target="pl-huawei-panel">Huawei ASN Extractor</button>
         <button class="tab-btn" data-target="converter-panel">Column / Delimited Converter</button>
       </nav>
     </header>
@@ -1278,6 +1279,326 @@ clearAllBtn.addEventListener(&quot;click&quot;, clearAll);
 selectCopyBtn.addEventListener(&quot;click&quot;, selectAndCopyOutput);
 updateGutter(leftText, leftGutter);
 updateGutter(rightText, rightGutter);&lt;/script&gt;&lt;/body&gt;&lt;/html&gt;"></iframe></section>
+      <section id="pl-huawei-panel" class="panel"><iframe title="Huawei ASN Extractor" srcdoc="<!DOCTYPE html>
+<html lang=&quot;en&quot;>
+<head>
+<meta charset=&quot;UTF-8&quot;>
+<meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;>
+<title>Packing List Extractor</title>
+<link href=&quot;https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap&quot; rel=&quot;stylesheet&quot;>
+<script src=&quot;https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js&quot;></script>
+<style>
+:root{--navy:#1a2744;--navy2:#243259;--steel:#4a5568;--silver:#8898aa;--border:#d1d9e0;--bg:#f4f6f9;--white:#fff;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:&#39;Inter&#39;,sans-serif;background:var(--bg);color:#1a202c;min-height:100vh;}
+.header{background:var(--navy);padding:0 2rem;height:54px;display:flex;align-items:center;gap:10px;}
+.header-icon{width:28px;height:28px;background:rgba(255,255,255,.1);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px;}
+.header-title{font-size:14px;font-weight:600;color:#fff;}
+.header-sub{font-size:11px;color:#7eb3ff;margin-top:1px;}
+.main{max-width:1000px;margin:0 auto;padding:1.75rem 1.5rem 4rem;}
+.drop-zone{border:2px dashed #c8d3e6;border-radius:10px;background:var(--white);padding:2.5rem 2rem;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;margin-bottom:1rem;}
+.drop-zone:hover,.drop-zone.over{border-color:var(--navy);background:#f0f4ff;}
+.drop-zone .dz-icon{font-size:36px;margin-bottom:.6rem;}
+.drop-zone h3{font-size:14px;font-weight:600;color:var(--navy);margin-bottom:.25rem;}
+.drop-zone p{font-size:12px;color:var(--silver);}
+#file-input{display:none;}
+.file-list{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:1rem;}
+.chip{display:inline-flex;align-items:center;gap:6px;background:#eef1f8;border:1px solid #ccd3e0;border-radius:6px;padding:4px 10px;font-size:12px;color:var(--navy2);}
+.chip .rm{cursor:pointer;color:var(--silver);}
+.chip .rm:hover{color:#c0392b;}
+.btn-row{display:flex;gap:8px;margin-bottom:1rem;}
+.btn{padding:8px 18px;border-radius:7px;border:none;cursor:pointer;font-size:13px;font-weight:500;font-family:&#39;Inter&#39;,sans-serif;transition:background .12s,opacity .12s;}
+.btn:disabled{opacity:.35;cursor:not-allowed;}
+.btn-primary{background:var(--navy);color:#fff;}
+.btn-primary:hover:not(:disabled){background:var(--navy2);}
+.btn-ghost{background:#fff;color:var(--steel);border:1px solid var(--border);}
+.btn-ghost:hover:not(:disabled){background:var(--bg);}
+#status{font-size:12px;color:var(--silver);min-height:18px;margin-bottom:.5rem;}
+.progress-wrap{height:3px;background:#e2e8f0;border-radius:99px;margin-bottom:1rem;overflow:hidden;display:none;}
+.progress-bar{height:3px;background:var(--navy);border-radius:99px;transition:width .3s;width:0%;}
+.results-block{display:none;}
+.summary-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;}
+.summary-card{background:var(--navy);border-radius:10px;padding:1.25rem 1.75rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;}
+.s-left{display:flex;flex-direction:column;gap:4px;}
+.s-top{font-size:11px;font-weight:600;color:#7eb3ff;letter-spacing:.5px;text-transform:uppercase;}
+.s-bottom{font-size:15px;font-weight:700;color:#fff;}
+.s-right{display:flex;align-items:baseline;gap:6px;}
+.s-value{font-size:28px;font-weight:800;color:#fff;font-family:&#39;JetBrains Mono&#39;,monospace;letter-spacing:-1px;}
+.s-unit{font-size:14px;color:#7eb3ff;font-weight:500;}
+.table-wrap{border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+thead{background:var(--navy);}
+thead th{padding:10px 14px;text-align:left;font-size:11px;font-weight:600;color:#c8d8f0;letter-spacing:.4px;white-space:nowrap;}
+thead th.r{text-align:right;}
+tbody tr{border-bottom:1px solid #edf0f5;background:var(--white);}
+tbody tr:last-child{border-bottom:none;}
+tbody tr:hover{background:#f7f9ff;}
+tbody td{padding:10px 14px;vertical-align:middle;}
+td.no{color:var(--silver);font-size:12px;width:40px;}
+td.fname{font-size:12px;color:var(--steel);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+td.pl{font-family:&#39;JetBrains Mono&#39;,monospace;font-size:12px;color:var(--navy2);font-weight:500;}
+td.rem{font-weight:600;}
+td.num{text-align:right;font-family:&#39;JetBrains Mono&#39;,monospace;font-size:13px;}
+td.miss{text-align:right;color:var(--silver);}
+/* Debug panel */
+#debug-panel{background:#1a1a2e;border-radius:8px;padding:1rem;margin-top:1rem;display:none;overflow:auto;max-height:400px;}
+#debug-panel pre{font-family:&#39;JetBrains Mono&#39;,monospace;font-size:11px;color:#a0d4a0;white-space:pre;line-height:1.5;}
+.debug-toggle{font-size:11px;color:var(--silver);cursor:pointer;text-decoration:underline;margin-top:.5rem;display:inline-block;}
+</style>
+</head>
+<body>
+<header class=&quot;header&quot;>
+  <div class=&quot;header-icon&quot;>📋</div>
+  <div>
+    <div class=&quot;header-title&quot;>Packing List Extractor</div>
+    <div class=&quot;header-sub&quot;>Huawei / Western Digital</div>
+  </div>
+</header>
+<main class=&quot;main&quot;>
+  <div class=&quot;drop-zone&quot; id=&quot;drop-zone&quot; onclick=&quot;document.getElementById(&#39;file-input&#39;).click()&quot;>
+    <div class=&quot;dz-icon&quot;>📄</div>
+    <h3>Drop PDF files here</h3>
+    <p>หรือคลิกเพื่อเลือกไฟล์ — รองรับหลายไฟล์พร้อมกัน</p>
+  </div>
+  <input type=&quot;file&quot; id=&quot;file-input&quot; accept=&quot;.pdf&quot; multiple>
+  <div class=&quot;file-list&quot; id=&quot;file-list&quot;></div>
+  <div class=&quot;btn-row&quot;>
+    <button class=&quot;btn btn-ghost&quot; onclick=&quot;clearAll()&quot;>🗑 Clear Table</button>
+  </div>
+  <div id=&quot;status&quot;></div>
+  <div class=&quot;progress-wrap&quot; id=&quot;progress-wrap&quot;><div class=&quot;progress-bar&quot; id=&quot;progress-bar&quot;></div></div>
+  <div class=&quot;results-block&quot; id=&quot;results-block&quot;>
+    <div class=&quot;summary-row&quot;>
+      <div class=&quot;summary-card&quot;>
+        <div class=&quot;s-left&quot;>
+          <span class=&quot;s-top&quot;>Total</span>
+          <span class=&quot;s-bottom&quot;>Gross Weight</span>
+        </div>
+        <div class=&quot;s-right&quot;>
+          <span class=&quot;s-value&quot; id=&quot;total-gross&quot;>0.00</span>
+          <span class=&quot;s-unit&quot;>kg</span>
+        </div>
+      </div>
+      <div class=&quot;summary-card&quot;>
+        <div class=&quot;s-left&quot;>
+          <span class=&quot;s-top&quot;>Total</span>
+          <span class=&quot;s-bottom&quot;>Net Weight</span>
+        </div>
+        <div class=&quot;s-right&quot;>
+          <span class=&quot;s-value&quot; id=&quot;total-net&quot;>0.00</span>
+          <span class=&quot;s-unit&quot;>kg</span>
+        </div>
+      </div>
+    </div>
+    <div class=&quot;table-wrap&quot;>
+      <table>
+        <thead>
+          <tr>
+            <th>No.</th><th>File Name</th><th>PL#</th><th>REMARK</th>
+            <th class=&quot;r&quot;>GROSS WGT (kg)</th><th class=&quot;r&quot;>NET WGT (kg)</th>
+          </tr>
+        </thead>
+        <tbody id=&quot;results-body&quot;></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc=&#39;https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js&#39;;
+let files=[],results=[],lastItems=[];
+
+const dz=document.getElementById(&#39;drop-zone&#39;);
+dz.addEventListener(&#39;dragover&#39;,e=>{e.preventDefault();dz.classList.add(&#39;over&#39;);});
+dz.addEventListener(&#39;dragleave&#39;,()=>dz.classList.remove(&#39;over&#39;));
+dz.addEventListener(&#39;drop&#39;,e=>{
+  e.preventDefault();dz.classList.remove(&#39;over&#39;);
+  const pdfs=[...e.dataTransfer.files].filter(f=>f.type===&#39;application/pdf&#39;);
+  if(pdfs.length){addFiles(pdfs);setTimeout(extractAll,50);}
+});
+document.getElementById(&#39;file-input&#39;).addEventListener(&#39;change&#39;,e=>{
+  addFiles([...e.target.files]);
+  document.getElementById(&#39;file-input&#39;).value=&#39;&#39;;
+  setTimeout(extractAll,50);
+});
+
+function addFiles(nf){nf.forEach(f=>{if(!files.find(x=>x.name===f.name))files.push(f);});renderFiles();}
+function removeFile(i){files.splice(i,1);renderFiles();if(!files.length){results=[];document.getElementById(&#39;results-block&#39;).style.display=&#39;none&#39;;}}
+function renderFiles(){
+  const fl=document.getElementById(&#39;file-list&#39;);fl.innerHTML=&#39;&#39;;
+  files.forEach((f,i)=>{
+    const s=document.createElement(&#39;span&#39;);s.className=&#39;chip&#39;;
+    s.innerHTML=&#39;📄 &#39;+f.name+&#39; <span class=&quot;rm&quot; onclick=&quot;removeFile(&#39;+i+&#39;)&quot;>✕</span>&#39;;
+    fl.appendChild(s);
+  });
+  
+}
+function clearAll(){
+  files=[];results=[];lastItems=[];
+  document.getElementById(&#39;file-list&#39;).innerHTML=&#39;&#39;;
+  
+  document.getElementById(&#39;status&#39;).textContent=&#39;&#39;;
+  document.getElementById(&#39;progress-wrap&#39;).style.display=&#39;none&#39;;
+  document.getElementById(&#39;results-block&#39;).style.display=&#39;none&#39;;
+  
+  
+}
+
+
+async function extractItems(file){
+  const ab=await file.arrayBuffer();
+  const pdf=await pdfjsLib.getDocument({data:ab}).promise;
+  const allItems=[];
+  for(let p=1;p<=pdf.numPages;p++){
+    const page=await pdf.getPage(p);
+    const vp=page.getViewport({scale:1});
+    const H=vp.height;
+    const content=await page.getTextContent();
+    content.items.forEach(item=>{
+      if(!item.str.trim())return;
+      // PDF coordinates: origin bottom-left, Y increases upward
+      // We keep raw PDF Y (higher = higher on page)
+      allItems.push({
+        str:item.str.trim(),
+        x:parseFloat(item.transform[4].toFixed(1)),
+        y:parseFloat(item.transform[5].toFixed(1))  // raw PDF Y, higher = higher on page
+      });
+    });
+  }
+  // Sort by Y desc (top of page first), then X asc
+  allItems.sort((a,b)=>b.y-a.y||a.x-b.x);
+  return allItems;
+}
+
+function parsePL(items,filename){
+  // Show debug
+  let dbg=&#39;=== PDF.js items for: &#39;+filename+&#39; ===\n&#39;;
+  dbg+=&#39;str&#39;.padEnd(30)+&#39; x&#39;.padStart(8)+&#39; y&#39;.padStart(8)+&#39;\n&#39;;
+  dbg+=&#39;─&#39;.repeat(50)+&#39;\n&#39;;
+  items.forEach(i=>{
+    dbg+=i.str.substring(0,28).padEnd(30)+String(i.x).padStart(8)+String(i.y).padStart(8)+&#39;\n&#39;;
+  });
+  
+  
+
+  // From debug: exact positions known
+  // PL#:       x=71.3,  y=15   (label)
+  // H26A14AAC-PL  x=71.3, y=50  (value)
+  // REMARK     x=208.9, y=622  (header)
+  // 4487457    x=240.4, y=622  (value)
+  // GROSS WGT  x=301.3, y=93.4 (label, TOTAL section)
+  // 27.8kg     x=301.3, y=158  (value)
+  // NET WGT    x=321.3, y=107.4(label, TOTAL section)
+  // 26.08kg    x=321.3, y=158  (value)
+
+  // ── PL# ──
+  // Item ending with -PL at x≈71, y≈50
+  let pl=&#39;-&#39;;
+  const plItem=items.find(i=>/-PL$/i.test(i.str)&amp;&amp;i.x<120);
+  if(plItem){pl=plItem.str.trim();}
+  else{
+    // fallback: any item ending with -PL
+    const anyPL=items.find(i=>/-PL$/i.test(i.str));
+    if(anyPL)pl=anyPL.str.trim();
+  }
+
+  // ── REMARK ──
+  // 7-digit at x≈240, y≈622
+  let remark=&#39;-&#39;;
+  const remItem=items.find(i=>/^\d{7}$/.test(i.str)&amp;&amp;Math.abs(i.x-240.4)<=50&amp;&amp;Math.abs(i.y-622)<=30);
+  if(remItem)remark=remItem.str;
+  else{
+    // fallback: find REMARK header then look right
+    const remHeader=items.find(i=>i.str===&#39;REMARK&#39;);
+    if(remHeader){
+      const remVal=items.find(i=>Math.abs(i.y-remHeader.y)<=5&amp;&amp;i.x>remHeader.x&amp;&amp;/^\d{7}$/.test(i.str));
+      if(remVal)remark=remVal.str;
+    }
+  }
+
+  // ── GROSS WGT ──
+  // 27.8kg at x≈301, y≈158
+  let gross=null;
+  const gItem=items.find(i=>/^[\d.]+kg$/i.test(i.str)&amp;&amp;Math.abs(i.x-301.3)<=50&amp;&amp;Math.abs(i.y-158)<=30);
+  if(gItem)gross=parseFloat(gItem.str);
+  else{
+    // fallback: GROSS WGT label then value right of it
+    const gwLabel=items.find(i=>i.str===&#39;GROSS WGT&#39;&amp;&amp;i.y<200);
+    if(gwLabel){
+      const gVal=items.find(i=>Math.abs(i.y-gwLabel.y)<=5&amp;&amp;i.x>gwLabel.x&amp;&amp;/^[\d.]+kg$/i.test(i.str));
+      if(gVal)gross=parseFloat(gVal.str);
+    }
+  }
+
+  // ── NET WGT ──
+  // 26.08kg at x≈321, y≈158
+  let net=null;
+  const nItem=items.find(i=>/^[\d.]+kg$/i.test(i.str)&amp;&amp;Math.abs(i.x-321.3)<=50&amp;&amp;Math.abs(i.y-158)<=30&amp;&amp;i.str!==gItem?.str);
+  if(nItem)net=parseFloat(nItem.str);
+  else{
+    // fallback: NET WGT label then value right of it
+    const nwLabel=items.find(i=>i.str===&#39;NET WGT&#39;&amp;&amp;i.y<200);
+    if(nwLabel){
+      const nVal=items.find(i=>Math.abs(i.y-nwLabel.y)<=5&amp;&amp;i.x>nwLabel.x&amp;&amp;/^[\d.]+kg$/i.test(i.str));
+      if(nVal)net=parseFloat(nVal.str);
+    }
+  }
+
+  return{pl,remark,gross,net,filename};
+}
+
+async function extractAll(){
+  if(files.length===0)return;
+  results=[];
+  
+  document.getElementById(&#39;results-block&#39;).style.display=&#39;none&#39;;
+  document.getElementById(&#39;progress-wrap&#39;).style.display=&#39;block&#39;;
+  document.getElementById(&#39;progress-bar&#39;).style.width=&#39;0%&#39;;
+
+  for(let i=0;i<files.length;i++){
+    document.getElementById(&#39;status&#39;).textContent=&#39;กำลังอ่าน &#39;+(i+1)+&#39;/&#39;+files.length+&#39;: &#39;+files[i].name;
+    document.getElementById(&#39;progress-bar&#39;).style.width=((i/files.length)*100)+&#39;%&#39;;
+    try{
+      const items=await extractItems(files[i]);
+      lastItems=items;
+      results.push(parsePL(items,files[i].name));
+    }catch(e){
+      console.error(e);
+      results.push({pl:&#39;Error&#39;,remark:e.message,gross:null,net:null,filename:files[i].name});
+    }
+  }
+  document.getElementById(&#39;progress-bar&#39;).style.width=&#39;100%&#39;;
+  document.getElementById(&#39;status&#39;).textContent=&#39;เสร็จ — พบข้อมูล &#39;+results.length+&#39; ไฟล์&#39;;
+  
+  renderResults();
+}
+
+function renderResults(){
+  const tbody=document.getElementById(&#39;results-body&#39;);
+  tbody.innerHTML=&#39;&#39;;
+  let tg=0,tn=0;
+  results.forEach((r,i)=>{
+    const tr=document.createElement(&#39;tr&#39;);
+    const g=r.gross!==null?r.gross.toFixed(1):null;
+    const n=r.net!==null?r.net.toFixed(2):null;
+    tr.innerHTML=
+      &#39;<td class=&quot;no&quot;>&#39;+(i+1)+&#39;</td>&#39;+
+      &#39;<td class=&quot;fname&quot; title=&quot;&#39;+r.filename+&#39;&quot;>&#39;+r.filename+&#39;</td>&#39;+
+      &#39;<td class=&quot;pl&quot;>&#39;+r.pl+&#39;</td>&#39;+
+      &#39;<td class=&quot;rem&quot;>&#39;+r.remark+&#39;</td>&#39;+
+      &#39;<td class=&quot;&#39;+(g?&#39;num&#39;:&#39;miss&#39;)+&#39;&quot;>&#39;+(g||&#39;-&#39;)+&#39;</td>&#39;+
+      &#39;<td class=&quot;&#39;+(n?&#39;num&#39;:&#39;miss&#39;)+&#39;&quot;>&#39;+(n||&#39;-&#39;)+&#39;</td>&#39;;
+    tbody.appendChild(tr);
+    if(r.gross)tg+=r.gross;
+    if(r.net)tn+=r.net;
+  });
+  document.getElementById(&#39;total-gross&#39;).textContent=tg.toFixed(2);
+  document.getElementById(&#39;total-net&#39;).textContent=tn.toFixed(2);
+  document.getElementById(&#39;results-block&#39;).style.display=&#39;block&#39;;
+}
+</script>
+</body>
+</html>
+"></iframe></section>
     </main>
   </div>
   <script>
