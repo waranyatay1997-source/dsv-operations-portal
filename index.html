@@ -1279,322 +1279,359 @@ clearAllBtn.addEventListener(&quot;click&quot;, clearAll);
 selectCopyBtn.addEventListener(&quot;click&quot;, selectAndCopyOutput);
 updateGutter(leftText, leftGutter);
 updateGutter(rightText, rightGutter);&lt;/script&gt;&lt;/body&gt;&lt;/html&gt;"></iframe></section>
-      <section id="pl-huawei-panel" class="panel"><iframe title="Huawei ASN Extractor" srcdoc="<!DOCTYPE html>
+          <section id="pl-huawei-panel" class="panel"><iframe title="Huawei ASN Extractor" srcdoc="<!DOCTYPE html>
 <html lang=&quot;en&quot;>
 <head>
 <meta charset=&quot;UTF-8&quot;>
 <meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;>
-<title>Packing List Extractor</title>
+<title>ASN vs THLC Check</title>
 <link href=&quot;https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap&quot; rel=&quot;stylesheet&quot;>
 <script src=&quot;https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js&quot;></script>
 <style>
-:root{--navy:#1a2744;--navy2:#243259;--steel:#4a5568;--silver:#8898aa;--border:#d1d9e0;--bg:#f4f6f9;--white:#fff;}
+:root{--navy:#1a2744;--navy2:#243259;--steel:#4a5568;--silver:#8898aa;--border:#d1d9e0;--bg:#f4f6f9;--white:#fff;--ok:#1a6e36;--bad:#c0392b;--pend:#8898aa;}
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:&#39;Inter&#39;,sans-serif;background:var(--bg);color:#1a202c;min-height:100vh;}
-.header{background:var(--navy);padding:0 2rem;height:54px;display:flex;align-items:center;gap:10px;}
-.header-icon{width:28px;height:28px;background:rgba(255,255,255,.1);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px;}
-.header-title{font-size:14px;font-weight:600;color:#fff;}
-.header-sub{font-size:11px;color:#7eb3ff;margin-top:1px;}
-.main{max-width:1000px;margin:0 auto;padding:1.75rem 1.5rem 4rem;}
-.drop-zone{border:2px dashed #c8d3e6;border-radius:10px;background:var(--white);padding:2.5rem 2rem;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;margin-bottom:1rem;}
+html,body{overflow-x:hidden;}
+body{font-family:&#39;Inter&#39;,sans-serif;background:var(--bg);color:#1a202c;font-size:13px;}
+.header{background:var(--navy);padding:0 1.25rem;height:46px;display:flex;align-items:center;gap:10px;}
+.header-icon{width:24px;height:24px;background:rgba(255,255,255,.1);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;}
+.header-title{font-size:13px;font-weight:600;color:#fff;}
+.header-sub{font-size:10px;color:#7eb3ff;}
+.main{padding:.8rem 1rem 1rem;display:flex;flex-direction:column;gap:.8rem;}
+.top{display:flex;flex-direction:column;gap:.5rem;}
+.toolbar{display:flex;justify-content:flex-end;}
+.btn{padding:6px 14px;border-radius:7px;border:1px solid var(--border);cursor:pointer;font-size:12px;font-weight:500;font-family:&#39;Inter&#39;,sans-serif;background:#fff;color:var(--steel);}
+.btn:hover{background:var(--bg);}
+.dz-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:.8rem;}
+.col-head{display:flex;align-items:center;gap:6px;margin-bottom:.3rem;min-width:0;}
+.tag{font-size:9px;font-weight:700;letter-spacing:.6px;background:var(--navy);color:#fff;border-radius:4px;padding:2px 6px;flex-shrink:0;}
+.col-title{font-size:12px;font-weight:600;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.drop-zone{border:2px dashed #c8d3e6;border-radius:9px;background:var(--white);padding:.7rem .6rem;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;}
 .drop-zone:hover,.drop-zone.over{border-color:var(--navy);background:#f0f4ff;}
-.drop-zone .dz-icon{font-size:36px;margin-bottom:.6rem;}
-.drop-zone h3{font-size:14px;font-weight:600;color:var(--navy);margin-bottom:.25rem;}
-.drop-zone p{font-size:12px;color:var(--silver);}
-#file-input{display:none;}
-.file-list{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:1rem;}
-.chip{display:inline-flex;align-items:center;gap:6px;background:#eef1f8;border:1px solid #ccd3e0;border-radius:6px;padding:4px 10px;font-size:12px;color:var(--navy2);}
-.chip .rm{cursor:pointer;color:var(--silver);}
-.chip .rm:hover{color:#c0392b;}
-.btn-row{display:flex;gap:8px;margin-bottom:1rem;}
-.btn{padding:8px 18px;border-radius:7px;border:none;cursor:pointer;font-size:13px;font-weight:500;font-family:&#39;Inter&#39;,sans-serif;transition:background .12s,opacity .12s;}
-.btn:disabled{opacity:.35;cursor:not-allowed;}
-.btn-primary{background:var(--navy);color:#fff;}
-.btn-primary:hover:not(:disabled){background:var(--navy2);}
-.btn-ghost{background:#fff;color:var(--steel);border:1px solid var(--border);}
-.btn-ghost:hover:not(:disabled){background:var(--bg);}
-#status{font-size:12px;color:var(--silver);min-height:18px;margin-bottom:.5rem;}
-.progress-wrap{height:3px;background:#e2e8f0;border-radius:99px;margin-bottom:1rem;overflow:hidden;display:none;}
-.progress-bar{height:3px;background:var(--navy);border-radius:99px;transition:width .3s;width:0%;}
-.results-block{display:none;}
-.summary-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;}
-.summary-card{background:var(--navy);border-radius:10px;padding:1.25rem 1.75rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;}
-.s-left{display:flex;flex-direction:column;gap:4px;}
-.s-top{font-size:11px;font-weight:600;color:#7eb3ff;letter-spacing:.5px;text-transform:uppercase;}
-.s-bottom{font-size:15px;font-weight:700;color:#fff;}
-.s-right{display:flex;align-items:baseline;gap:6px;}
-.s-value{font-size:28px;font-weight:800;color:#fff;font-family:&#39;JetBrains Mono&#39;,monospace;letter-spacing:-1px;}
-.s-unit{font-size:14px;color:#7eb3ff;font-weight:500;}
-.table-wrap{border:1px solid var(--border);border-radius:10px;overflow:hidden;}
-table{width:100%;border-collapse:collapse;font-size:13px;}
+.dz-icon{font-size:18px;margin-bottom:.1rem;}
+.drop-zone h3{font-size:12px;font-weight:600;color:var(--navy);margin-bottom:.1rem;}
+.drop-zone p{font-size:10px;color:var(--silver);}
+.zstatus{font-size:11px;color:var(--silver);min-height:14px;margin-top:.25rem;}
+.compare{background:var(--white);border:1px solid var(--border);border-radius:9px;padding:.6rem .8rem;}
+.cmp-title{font-size:12px;font-weight:600;color:var(--navy);margin-bottom:.4rem;}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:.8rem;}
+.table-wrap{border:1px solid var(--border);border-radius:9px;overflow:auto;background:#fff;max-height:240px;}
+table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;}
 thead{background:var(--navy);}
-thead th{padding:10px 14px;text-align:left;font-size:11px;font-weight:600;color:#c8d8f0;letter-spacing:.4px;white-space:nowrap;}
-thead th.r{text-align:right;}
-tbody tr{border-bottom:1px solid #edf0f5;background:var(--white);}
-tbody tr:last-child{border-bottom:none;}
+thead th{padding:7px 8px;text-align:left;font-size:10px;font-weight:600;color:#c8d8f0;letter-spacing:.3px;position:sticky;top:0;z-index:1;background:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+th.r,td.num{text-align:right;}
+tbody tr{border-bottom:1px solid #edf0f5;}
 tbody tr:hover{background:#f7f9ff;}
-tbody td{padding:10px 14px;vertical-align:middle;}
-td.no{color:var(--silver);font-size:12px;width:40px;}
-td.fname{font-size:12px;color:var(--steel);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-td.pl{font-family:&#39;JetBrains Mono&#39;,monospace;font-size:12px;color:var(--navy2);font-weight:500;}
+tbody td{padding:6px 8px;vertical-align:middle;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+td.no{color:var(--silver);font-size:11px;}
+td.fname{font-size:11px;color:var(--steel);}
+td.pl{font-family:&#39;JetBrains Mono&#39;,monospace;font-size:11px;color:var(--navy2);font-weight:500;}
 td.rem{font-weight:600;}
-td.num{text-align:right;font-family:&#39;JetBrains Mono&#39;,monospace;font-size:13px;}
+td.num{font-family:&#39;JetBrains Mono&#39;,monospace;font-size:12px;}
 td.miss{text-align:right;color:var(--silver);}
-/* Debug panel */
-#debug-panel{background:#1a1a2e;border-radius:8px;padding:1rem;margin-top:1rem;display:none;overflow:auto;max-height:400px;}
-#debug-panel pre{font-family:&#39;JetBrains Mono&#39;,monospace;font-size:11px;color:#a0d4a0;white-space:pre;line-height:1.5;}
-.debug-toggle{font-size:11px;color:var(--silver);cursor:pointer;text-decoration:underline;margin-top:.5rem;display:inline-block;}
+td.err{color:var(--bad);font-size:11px;white-space:normal;}
+tfoot td{padding:6px 8px;background:#f3f6fb;font-weight:600;border-top:1px solid var(--border);font-size:12px;}
+tfoot td.num{font-family:&#39;JetBrains Mono&#39;,monospace;}
+.empty td{text-align:center;color:var(--silver);padding:1rem;font-size:12px;white-space:normal;}
+.cmp-table td,.cmp-table th{padding:6px 8px;font-size:12px;}
+td.lbl{font-weight:600;color:var(--navy);}
+td.stat{font-weight:600;}
+.ok{color:var(--ok);}
+.bad{color:var(--bad);}
+.pend{color:var(--pend);}
+@media (max-width:720px){.dz-row,.cols{grid-template-columns:minmax(0,1fr);}}
+.hidden-input{display:none;}
 </style>
 </head>
 <body>
 <header class=&quot;header&quot;>
   <div class=&quot;header-icon&quot;>📋</div>
   <div>
-    <div class=&quot;header-title&quot;>Packing List Extractor</div>
-    <div class=&quot;header-sub&quot;>Huawei / Western Digital</div>
+    <div class=&quot;header-title&quot;>ASN vs THLC Check</div>
+    <div class=&quot;header-sub&quot;>Huawei ASN / Western Digital THLC</div>
   </div>
 </header>
+
 <main class=&quot;main&quot;>
-  <div class=&quot;drop-zone&quot; id=&quot;drop-zone&quot; onclick=&quot;document.getElementById(&#39;file-input&#39;).click()&quot;>
-    <div class=&quot;dz-icon&quot;>📄</div>
-    <h3>Drop PDF files here</h3>
-    <p>หรือคลิกเพื่อเลือกไฟล์ — รองรับหลายไฟล์พร้อมกัน</p>
-  </div>
-  <input type=&quot;file&quot; id=&quot;file-input&quot; accept=&quot;.pdf&quot; multiple>
-  <div class=&quot;file-list&quot; id=&quot;file-list&quot;></div>
-  <div class=&quot;btn-row&quot;>
-    <button class=&quot;btn btn-ghost&quot; onclick=&quot;clearAll()&quot;>🗑 Clear Table</button>
-  </div>
-  <div id=&quot;status&quot;></div>
-  <div class=&quot;progress-wrap&quot; id=&quot;progress-wrap&quot;><div class=&quot;progress-bar&quot; id=&quot;progress-bar&quot;></div></div>
-  <div class=&quot;results-block&quot; id=&quot;results-block&quot;>
-    <div class=&quot;summary-row&quot;>
-      <div class=&quot;summary-card&quot;>
-        <div class=&quot;s-left&quot;>
-          <span class=&quot;s-top&quot;>Total</span>
-          <span class=&quot;s-bottom&quot;>Gross Weight</span>
+  <div class=&quot;top&quot;>
+    <div class=&quot;toolbar&quot;><button class=&quot;btn&quot; onclick=&quot;clearAll()&quot;>🗑 Clear Table</button></div>
+    <div class=&quot;dz-row&quot;>
+      <div>
+        <div class=&quot;col-head&quot;><span class=&quot;tag&quot;>ASN</span><span class=&quot;col-title&quot;>Huawei Packing List</span></div>
+        <div class=&quot;drop-zone&quot; id=&quot;dz-asn&quot;>
+          <div class=&quot;dz-icon&quot;>📄</div>
+          <h3>Drop ASN PDF here</h3>
+          <p>คลิกหรือลากไฟล์ — อ่านอัตโนมัติ</p>
         </div>
-        <div class=&quot;s-right&quot;>
-          <span class=&quot;s-value&quot; id=&quot;total-gross&quot;>0.00</span>
-          <span class=&quot;s-unit&quot;>kg</span>
-        </div>
+        <input type=&quot;file&quot; id=&quot;in-asn&quot; class=&quot;hidden-input&quot; accept=&quot;.pdf&quot; multiple>
+        <div class=&quot;zstatus&quot; id=&quot;st-asn&quot;></div>
       </div>
-      <div class=&quot;summary-card&quot;>
-        <div class=&quot;s-left&quot;>
-          <span class=&quot;s-top&quot;>Total</span>
-          <span class=&quot;s-bottom&quot;>Net Weight</span>
+      <div>
+        <div class=&quot;col-head&quot;><span class=&quot;tag&quot;>THLC</span><span class=&quot;col-title&quot;>WD Delivery Order &amp;amp; Packing List</span></div>
+        <div class=&quot;drop-zone&quot; id=&quot;dz-thlc&quot;>
+          <div class=&quot;dz-icon&quot;>📄</div>
+          <h3>Drop THLC PDF here</h3>
+          <p>คลิกหรือลากไฟล์ — อ่านอัตโนมัติ</p>
         </div>
-        <div class=&quot;s-right&quot;>
-          <span class=&quot;s-value&quot; id=&quot;total-net&quot;>0.00</span>
-          <span class=&quot;s-unit&quot;>kg</span>
-        </div>
+        <input type=&quot;file&quot; id=&quot;in-thlc&quot; class=&quot;hidden-input&quot; accept=&quot;.pdf&quot; multiple>
+        <div class=&quot;zstatus&quot; id=&quot;st-thlc&quot;></div>
       </div>
     </div>
-    <div class=&quot;table-wrap&quot;>
-      <table>
-        <thead>
-          <tr>
-            <th>No.</th><th>File Name</th><th>PL#</th><th>REMARK</th>
-            <th class=&quot;r&quot;>GROSS WGT (kg)</th><th class=&quot;r&quot;>NET WGT (kg)</th>
-          </tr>
-        </thead>
-        <tbody id=&quot;results-body&quot;></tbody>
-      </table>
-    </div>
+  </div>
+
+  <section class=&quot;compare&quot;>
+    <div class=&quot;cmp-title&quot;>Comparison — ASN Total vs THLC Total</div>
+    <table class=&quot;cmp-table&quot;>
+      <thead>
+        <tr>
+          <th style=&quot;width:22%&quot;>Item</th>
+          <th class=&quot;r&quot; style=&quot;width:19%&quot;>ASN Total</th>
+          <th class=&quot;r&quot; style=&quot;width:19%&quot;>THLC Total</th>
+          <th class=&quot;r&quot; style=&quot;width:20%&quot;>Diff (ASN − THLC)</th>
+          <th style=&quot;width:20%&quot;>Status</th>
+        </tr>
+      </thead>
+      <tbody id=&quot;cmp-body&quot;></tbody>
+    </table>
+  </section>
+
+  <div class=&quot;cols&quot;>
+    <section>
+      <div class=&quot;table-wrap&quot;>
+        <table>
+          <colgroup><col style=&quot;width:28px&quot;><col><col style=&quot;width:22%&quot;><col style=&quot;width:22%&quot;><col style=&quot;width:18%&quot;><col style=&quot;width:18%&quot;></colgroup>
+          <thead>
+            <tr><th>No.</th><th>File Name</th><th>PL#</th><th>REMARK</th><th class=&quot;r&quot;>GROSS (kg)</th><th class=&quot;r&quot;>NET (kg)</th></tr>
+          </thead>
+          <tbody id=&quot;tb-asn&quot;></tbody>
+          <tfoot id=&quot;tf-asn&quot;></tfoot>
+        </table>
+      </div>
+    </section>
+    <section>
+      <div class=&quot;table-wrap&quot;>
+        <table>
+          <colgroup><col style=&quot;width:28px&quot;><col><col style=&quot;width:26%&quot;><col style=&quot;width:19%&quot;><col style=&quot;width:19%&quot;></colgroup>
+          <thead>
+            <tr><th>No.</th><th>File Name</th><th>Shipment</th><th class=&quot;r&quot;>GROSS (kg)</th><th class=&quot;r&quot;>NET (kg)</th></tr>
+          </thead>
+          <tbody id=&quot;tb-thlc&quot;></tbody>
+          <tfoot id=&quot;tf-thlc&quot;></tfoot>
+        </table>
+      </div>
+    </section>
   </div>
 </main>
+
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc=&#39;https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js&#39;;
-let files=[],results=[],lastItems=[];
 
-const dz=document.getElementById(&#39;drop-zone&#39;);
-dz.addEventListener(&#39;dragover&#39;,e=>{e.preventDefault();dz.classList.add(&#39;over&#39;);});
-dz.addEventListener(&#39;dragleave&#39;,()=>dz.classList.remove(&#39;over&#39;));
-dz.addEventListener(&#39;drop&#39;,e=>{
-  e.preventDefault();dz.classList.remove(&#39;over&#39;);
-  const pdfs=[...e.dataTransfer.files].filter(f=>f.type===&#39;application/pdf&#39;);
-  if(pdfs.length){addFiles(pdfs);setTimeout(extractAll,50);}
-});
-document.getElementById(&#39;file-input&#39;).addEventListener(&#39;change&#39;,e=>{
-  addFiles([...e.target.files]);
-  document.getElementById(&#39;file-input&#39;).value=&#39;&#39;;
-  setTimeout(extractAll,50);
-});
+const data={asn:[],thlc:[]};
 
-function addFiles(nf){nf.forEach(f=>{if(!files.find(x=>x.name===f.name))files.push(f);});renderFiles();}
-function removeFile(i){files.splice(i,1);renderFiles();if(!files.length){results=[];document.getElementById(&#39;results-block&#39;).style.display=&#39;none&#39;;}}
-function renderFiles(){
-  const fl=document.getElementById(&#39;file-list&#39;);fl.innerHTML=&#39;&#39;;
-  files.forEach((f,i)=>{
-    const s=document.createElement(&#39;span&#39;);s.className=&#39;chip&#39;;
-    s.innerHTML=&#39;📄 &#39;+f.name+&#39; <span class=&quot;rm&quot; onclick=&quot;removeFile(&#39;+i+&#39;)&quot;>✕</span>&#39;;
-    fl.appendChild(s);
+function esc(s){
+  return String(s===undefined||s===null?&#39;&#39;:s).replace(/&amp;/g,&#39;&amp;amp;&#39;).replace(/</g,&#39;&amp;lt;&#39;).replace(/>/g,&#39;&amp;gt;&#39;).replace(/&quot;/g,&#39;&amp;quot;&#39;);
+}
+function fmt(v){return (v===null||v===undefined)?&#39;<span class=&quot;miss&quot;>-</span>&#39;:v.toFixed(2);}
+function sum(arr,k){return arr.reduce((s,r)=>s+((typeof r[k]===&#39;number&#39;)?r[k]:0),0);}
+
+function setupZone(side){
+  const dz=document.getElementById(&#39;dz-&#39;+side);
+  const inp=document.getElementById(&#39;in-&#39;+side);
+  dz.addEventListener(&#39;click&#39;,()=>inp.click());
+  dz.addEventListener(&#39;dragover&#39;,e=>{e.preventDefault();dz.classList.add(&#39;over&#39;);});
+  dz.addEventListener(&#39;dragleave&#39;,()=>dz.classList.remove(&#39;over&#39;));
+  dz.addEventListener(&#39;drop&#39;,e=>{
+    e.preventDefault();
+    dz.classList.remove(&#39;over&#39;);
+    addFiles(side,[...e.dataTransfer.files]);
   });
-  
+  inp.addEventListener(&#39;change&#39;,e=>{
+    addFiles(side,[...e.target.files]);
+    inp.value=&#39;&#39;;
+  });
 }
-function clearAll(){
-  files=[];results=[];lastItems=[];
-  document.getElementById(&#39;file-list&#39;).innerHTML=&#39;&#39;;
-  
-  document.getElementById(&#39;status&#39;).textContent=&#39;&#39;;
-  document.getElementById(&#39;progress-wrap&#39;).style.display=&#39;none&#39;;
-  document.getElementById(&#39;results-block&#39;).style.display=&#39;none&#39;;
-  
-  
+setupZone(&#39;asn&#39;);
+setupZone(&#39;thlc&#39;);
+
+function setStatus(side,msg){document.getElementById(&#39;st-&#39;+side).textContent=msg;}
+
+async function addFiles(side,list){
+  const pdfs=list.filter(f=>f.type===&#39;application/pdf&#39;||/\.pdf$/i.test(f.name));
+  for(const f of pdfs){
+    if(data[side].some(r=>r.filename===f.name))continue;
+    setStatus(side,&#39;กำลังอ่าน &#39;+f.name+&#39; ...&#39;);
+    try{
+      const pages=await extractPages(f);
+      const rec=(side===&#39;asn&#39;)?parseASN(pages.flat(),f.name):parseTHLC(pages,f.name);
+      data[side].push(rec);
+    }catch(err){
+      console.error(err);
+      data[side].push({filename:f.name,error:(err&amp;&amp;err.message)?err.message:String(err)});
+    }
+    renderAll();
+  }
+  setStatus(side,&#39;&#39;);
+  renderAll();
 }
 
-
-async function extractItems(file){
+async function extractPages(file){
   const ab=await file.arrayBuffer();
   const pdf=await pdfjsLib.getDocument({data:ab}).promise;
-  const allItems=[];
+  const pages=[];
   for(let p=1;p<=pdf.numPages;p++){
     const page=await pdf.getPage(p);
-    const vp=page.getViewport({scale:1});
-    const H=vp.height;
     const content=await page.getTextContent();
-    content.items.forEach(item=>{
-      if(!item.str.trim())return;
-      // PDF coordinates: origin bottom-left, Y increases upward
-      // We keep raw PDF Y (higher = higher on page)
-      allItems.push({
-        str:item.str.trim(),
-        x:parseFloat(item.transform[4].toFixed(1)),
-        y:parseFloat(item.transform[5].toFixed(1))  // raw PDF Y, higher = higher on page
-      });
-    });
+    pages.push(content.items
+      .filter(it=>it.str&amp;&amp;it.str.trim())
+      .map(it=>({str:it.str.trim(),x:it.transform[4],y:it.transform[5]})));
   }
-  // Sort by Y desc (top of page first), then X asc
-  allItems.sort((a,b)=>b.y-a.y||a.x-b.x);
-  return allItems;
+  return pages;
 }
 
-function parsePL(items,filename){
-  // Show debug
-  let dbg=&#39;=== PDF.js items for: &#39;+filename+&#39; ===\n&#39;;
-  dbg+=&#39;str&#39;.padEnd(30)+&#39; x&#39;.padStart(8)+&#39; y&#39;.padStart(8)+&#39;\n&#39;;
-  dbg+=&#39;─&#39;.repeat(50)+&#39;\n&#39;;
-  items.forEach(i=>{
-    dbg+=i.str.substring(0,28).padEnd(30)+String(i.x).padStart(8)+String(i.y).padStart(8)+&#39;\n&#39;;
-  });
-  
-  
-
-  // From debug: exact positions known
-  // PL#:       x=71.3,  y=15   (label)
-  // H26A14AAC-PL  x=71.3, y=50  (value)
-  // REMARK     x=208.9, y=622  (header)
-  // 4487457    x=240.4, y=622  (value)
-  // GROSS WGT  x=301.3, y=93.4 (label, TOTAL section)
-  // 27.8kg     x=301.3, y=158  (value)
-  // NET WGT    x=321.3, y=107.4(label, TOTAL section)
-  // 26.08kg    x=321.3, y=158  (value)
-
-  // ── PL# ──
-  // Item ending with -PL at x≈71, y≈50
+/* ---------- ASN (Huawei packing list) ---------- */
+function parseASN(items,filename){
   let pl=&#39;-&#39;;
-  const plItem=items.find(i=>/-PL$/i.test(i.str)&amp;&amp;i.x<120);
-  if(plItem){pl=plItem.str.trim();}
-  else{
-    // fallback: any item ending with -PL
-    const anyPL=items.find(i=>/-PL$/i.test(i.str));
-    if(anyPL)pl=anyPL.str.trim();
-  }
+  const plItem=items.find(i=>/-PL$/i.test(i.str)&amp;&amp;i.x<120)||items.find(i=>/-PL$/i.test(i.str));
+  if(plItem)pl=plItem.str;
 
-  // ── REMARK ──
-  // 7-digit at x≈240, y≈622
   let remark=&#39;-&#39;;
-  const remItem=items.find(i=>/^\d{7}$/.test(i.str)&amp;&amp;Math.abs(i.x-240.4)<=50&amp;&amp;Math.abs(i.y-622)<=30);
+  const remItem=items.find(i=>/^\d{7}$/.test(i.str)&amp;&amp;Math.abs(i.x-240)<=50&amp;&amp;Math.abs(i.y-622)<=30)
+    ||items.find(i=>/^\d{7}$/.test(i.str)&amp;&amp;i.x>=190&amp;&amp;i.x<=290&amp;&amp;i.y>=580&amp;&amp;i.y<=660);
   if(remItem)remark=remItem.str;
-  else{
-    // fallback: find REMARK header then look right
-    const remHeader=items.find(i=>i.str===&#39;REMARK&#39;);
-    if(remHeader){
-      const remVal=items.find(i=>Math.abs(i.y-remHeader.y)<=5&amp;&amp;i.x>remHeader.x&amp;&amp;/^\d{7}$/.test(i.str));
-      if(remVal)remark=remVal.str;
-    }
-  }
 
-  // ── GROSS WGT ──
-  // 27.8kg at x≈301, y≈158
-  let gross=null;
-  const gItem=items.find(i=>/^[\d.]+kg$/i.test(i.str)&amp;&amp;Math.abs(i.x-301.3)<=50&amp;&amp;Math.abs(i.y-158)<=30);
-  if(gItem)gross=parseFloat(gItem.str);
-  else{
-    // fallback: GROSS WGT label then value right of it
-    const gwLabel=items.find(i=>i.str===&#39;GROSS WGT&#39;&amp;&amp;i.y<200);
-    if(gwLabel){
-      const gVal=items.find(i=>Math.abs(i.y-gwLabel.y)<=5&amp;&amp;i.x>gwLabel.x&amp;&amp;/^[\d.]+kg$/i.test(i.str));
-      if(gVal)gross=parseFloat(gVal.str);
-    }
-  }
+  // TOTAL weights band: left value = gross, right value = net
+  const band=items
+    .filter(i=>/^[\d.]+\s*kg$/i.test(i.str)&amp;&amp;i.x>=280&amp;&amp;i.x<=345&amp;&amp;i.y>=120&amp;&amp;i.y<=200)
+    .sort((a,b)=>a.x-b.x);
+  const gross=band[0]?parseFloat(band[0].str):null;
+  const net=band[1]?parseFloat(band[1].str):null;
 
-  // ── NET WGT ──
-  // 26.08kg at x≈321, y≈158
-  let net=null;
-  const nItem=items.find(i=>/^[\d.]+kg$/i.test(i.str)&amp;&amp;Math.abs(i.x-321.3)<=50&amp;&amp;Math.abs(i.y-158)<=30&amp;&amp;i.str!==gItem?.str);
-  if(nItem)net=parseFloat(nItem.str);
-  else{
-    // fallback: NET WGT label then value right of it
-    const nwLabel=items.find(i=>i.str===&#39;NET WGT&#39;&amp;&amp;i.y<200);
-    if(nwLabel){
-      const nVal=items.find(i=>Math.abs(i.y-nwLabel.y)<=5&amp;&amp;i.x>nwLabel.x&amp;&amp;/^[\d.]+kg$/i.test(i.str));
-      if(nVal)net=parseFloat(nVal.str);
-    }
-  }
-
-  return{pl,remark,gross,net,filename};
+  return {filename,pl,remark,gross,net};
 }
 
-async function extractAll(){
-  if(files.length===0)return;
-  results=[];
-  
-  document.getElementById(&#39;results-block&#39;).style.display=&#39;none&#39;;
-  document.getElementById(&#39;progress-wrap&#39;).style.display=&#39;block&#39;;
-  document.getElementById(&#39;progress-bar&#39;).style.width=&#39;0%&#39;;
-
-  for(let i=0;i<files.length;i++){
-    document.getElementById(&#39;status&#39;).textContent=&#39;กำลังอ่าน &#39;+(i+1)+&#39;/&#39;+files.length+&#39;: &#39;+files[i].name;
-    document.getElementById(&#39;progress-bar&#39;).style.width=((i/files.length)*100)+&#39;%&#39;;
-    try{
-      const items=await extractItems(files[i]);
-      lastItems=items;
-      results.push(parsePL(items,files[i].name));
-    }catch(e){
-      console.error(e);
-      results.push({pl:&#39;Error&#39;,remark:e.message,gross:null,net:null,filename:files[i].name});
-    }
-  }
-  document.getElementById(&#39;progress-bar&#39;).style.width=&#39;100%&#39;;
-  document.getElementById(&#39;status&#39;).textContent=&#39;เสร็จ — พบข้อมูล &#39;+results.length+&#39; ไฟล์&#39;;
-  
-  renderResults();
-}
-
-function renderResults(){
-  const tbody=document.getElementById(&#39;results-body&#39;);
-  tbody.innerHTML=&#39;&#39;;
-  let tg=0,tn=0;
-  results.forEach((r,i)=>{
-    const tr=document.createElement(&#39;tr&#39;);
-    const g=r.gross!==null?r.gross.toFixed(2):null;
-    const n=r.net!==null?r.net.toFixed(2):null;
-    tr.innerHTML=
-      &#39;<td class=&quot;no&quot;>&#39;+(i+1)+&#39;</td>&#39;+
-      &#39;<td class=&quot;fname&quot; title=&quot;&#39;+r.filename+&#39;&quot;>&#39;+r.filename+&#39;</td>&#39;+
-      &#39;<td class=&quot;pl&quot;>&#39;+r.pl+&#39;</td>&#39;+
-      &#39;<td class=&quot;rem&quot;>&#39;+r.remark+&#39;</td>&#39;+
-      &#39;<td class=&quot;&#39;+(g?&#39;num&#39;:&#39;miss&#39;)+&#39;&quot;>&#39;+(g||&#39;-&#39;)+&#39;</td>&#39;+
-      &#39;<td class=&quot;&#39;+(n?&#39;num&#39;:&#39;miss&#39;)+&#39;&quot;>&#39;+(n||&#39;-&#39;)+&#39;</td>&#39;;
-    tbody.appendChild(tr);
-    if(r.gross)tg+=r.gross;
-    if(r.net)tn+=r.net;
+/* ---------- THLC (WD delivery order / packing list) ---------- */
+function groupRows(items){
+  const sorted=[...items].sort((a,b)=>b.y-a.y);
+  const rows=[];
+  sorted.forEach(it=>{
+    const row=rows.find(r=>Math.abs(r.y-it.y)<=3);
+    if(row)row.items.push(it);
+    else rows.push({y:it.y,items:[it]});
   });
-  document.getElementById(&#39;total-gross&#39;).textContent=tg.toFixed(2);
-  document.getElementById(&#39;total-net&#39;).textContent=tn.toFixed(2);
-  document.getElementById(&#39;results-block&#39;).style.display=&#39;block&#39;;
+  rows.forEach(r=>r.items.sort((a,b)=>a.x-b.x));
+  return rows;
 }
+
+function rowValue(row,keyRe){
+  const key=row.items.find(i=>keyRe.test(i.str));
+  if(!key)return null;
+  const cands=row.items.filter(i=>{
+    const s=i.str.replace(/\s/g,&#39;&#39;);
+    return i.x>key.x &amp;&amp; /^\d{1,3}(,\d{3})*\.\d+$|^\d+\.\d+$/.test(s);
+  });
+  if(!cands.length)return null;
+  cands.sort((a,b)=>a.x-b.x);
+  return parseFloat(cands[0].str.replace(/[,\s]/g,&#39;&#39;));
+}
+
+function parseTHLC(pages,filename){
+  let gross=null,net=null;
+  const allText=pages.map(p=>p.map(i=>i.str).join(&#39; &#39;)).join(&#39; &#39;);
+  const sm=allText.match(/\d{8}-\d{5}/);
+  const shipment=sm?sm[0]:&#39;-&#39;;
+
+  for(const items of pages){
+    for(const row of groupRows(items)){
+      const txt=row.items.map(i=>i.str).join(&#39; &#39;);
+      if(gross===null&amp;&amp;/Total\s*Gross\s*Weight/i.test(txt))gross=rowValue(row,/Gross/i);
+      if(net===null&amp;&amp;/Total\s*Net\s*Weight/i.test(txt))net=rowValue(row,/Net/i);
+    }
+    if(gross!==null&amp;&amp;net!==null)break;
+  }
+  return {filename,shipment,gross,net};
+}
+
+/* ---------- Rendering ---------- */
+function renderAll(){renderASN();renderTHLC();renderCompare();}
+
+function renderASN(){
+  const tb=document.getElementById(&#39;tb-asn&#39;);
+  const tf=document.getElementById(&#39;tf-asn&#39;);
+  const rows=data.asn;
+  if(!rows.length){
+    tb.innerHTML=&#39;<tr class=&quot;empty&quot;><td colspan=&quot;6&quot;>No data yet — drop ASN PDF files</td></tr>&#39;;
+    tf.innerHTML=&#39;&#39;;
+    return;
+  }
+  tb.innerHTML=rows.map((r,i)=>
+    &#39;<tr><td class=&quot;no&quot;>&#39;+(i+1)+&#39;</td>&#39;+
+    &#39;<td class=&quot;fname&quot; title=&quot;&#39;+esc(r.filename)+&#39;&quot;>&#39;+esc(r.filename)+&#39;</td>&#39;+
+    (r.error
+      ? &#39;<td colspan=&quot;4&quot; class=&quot;err&quot;>&#39;+esc(r.error)+&#39;</td>&#39;
+      : &#39;<td class=&quot;pl&quot;>&#39;+esc(r.pl)+&#39;</td>&#39;+
+        &#39;<td class=&quot;rem&quot;>&#39;+esc(r.remark)+&#39;</td>&#39;+
+        &#39;<td class=&quot;num&quot;>&#39;+fmt(r.gross)+&#39;</td>&#39;+
+        &#39;<td class=&quot;num&quot;>&#39;+fmt(r.net)+&#39;</td>&#39;)+
+    &#39;</tr>&#39;).join(&#39;&#39;);
+  tf.innerHTML=&#39;<tr><td colspan=&quot;4&quot;>Total</td><td class=&quot;num&quot;>&#39;+sum(rows.filter(r=>!r.error),&#39;gross&#39;).toFixed(2)+&#39;</td><td class=&quot;num&quot;>&#39;+sum(rows.filter(r=>!r.error),&#39;net&#39;).toFixed(2)+&#39;</td></tr>&#39;;
+}
+
+function renderTHLC(){
+  const tb=document.getElementById(&#39;tb-thlc&#39;);
+  const tf=document.getElementById(&#39;tf-thlc&#39;);
+  const rows=data.thlc;
+  if(!rows.length){
+    tb.innerHTML=&#39;<tr class=&quot;empty&quot;><td colspan=&quot;5&quot;>No data yet — drop THLC PDF files</td></tr>&#39;;
+    tf.innerHTML=&#39;&#39;;
+    return;
+  }
+  tb.innerHTML=rows.map((r,i)=>
+    &#39;<tr><td class=&quot;no&quot;>&#39;+(i+1)+&#39;</td>&#39;+
+    &#39;<td class=&quot;fname&quot; title=&quot;&#39;+esc(r.filename)+&#39;&quot;>&#39;+esc(r.filename)+&#39;</td>&#39;+
+    (r.error
+      ? &#39;<td colspan=&quot;3&quot; class=&quot;err&quot;>&#39;+esc(r.error)+&#39;</td>&#39;
+      : &#39;<td class=&quot;pl&quot;>&#39;+esc(r.shipment)+&#39;</td>&#39;+
+        &#39;<td class=&quot;num&quot;>&#39;+fmt(r.gross)+&#39;</td>&#39;+
+        &#39;<td class=&quot;num&quot;>&#39;+fmt(r.net)+&#39;</td>&#39;)+
+    &#39;</tr>&#39;).join(&#39;&#39;);
+  const ok=rows.filter(r=>!r.error);
+  tf.innerHTML=&#39;<tr><td colspan=&quot;3&quot;>Total</td><td class=&quot;num&quot;>&#39;+sum(ok,&#39;gross&#39;).toFixed(2)+&#39;</td><td class=&quot;num&quot;>&#39;+sum(ok,&#39;net&#39;).toFixed(2)+&#39;</td></tr>&#39;;
+}
+
+function renderCompare(){
+  const a=data.asn.filter(r=>!r.error);
+  const t=data.thlc.filter(r=>!r.error);
+  const hasA=a.length>0, hasT=t.length>0;
+  const missA=k=>a.some(r=>r[k]===null);
+  const missT=k=>t.some(r=>r[k]===null);
+
+  function row(label,k){
+    const av=sum(a,k), tv=sum(t,k);
+    const both=hasA&amp;&amp;hasT;
+    const d=av-tv;
+    let status,cls;
+    if(!both){status=&#39;รอข้อมูลทั้ง 2 ฝั่ง&#39;;cls=&#39;pend&#39;;}
+    else if(missA(k)||missT(k)){status=&#39;ไม่พบค่าในบางไฟล์&#39;;cls=&#39;bad&#39;;}
+    else if(Math.abs(d)<0.005){status=&#39;✓ ตรงกัน&#39;;cls=&#39;ok&#39;;}
+    else{status=&#39;✗ ไม่ตรง&#39;;cls=&#39;bad&#39;;}
+    const diffTxt=(both&amp;&amp;!missA(k)&amp;&amp;!missT(k))?((d>=0?&#39;+&#39;:&#39;&#39;)+d.toFixed(2)):&#39;—&#39;;
+    return &#39;<tr>&#39;+
+      &#39;<td class=&quot;lbl&quot;>&#39;+label+&#39;</td>&#39;+
+      &#39;<td class=&quot;num&quot;>&#39;+(hasA?av.toFixed(2):&#39;—&#39;)+&#39;</td>&#39;+
+      &#39;<td class=&quot;num&quot;>&#39;+(hasT?tv.toFixed(2):&#39;—&#39;)+&#39;</td>&#39;+
+      &#39;<td class=&quot;num &#39;+cls+&#39;&quot;>&#39;+diffTxt+&#39;</td>&#39;+
+      &#39;<td class=&quot;stat &#39;+cls+&#39;&quot;>&#39;+status+&#39;</td>&#39;+
+      &#39;</tr>&#39;;
+  }
+  document.getElementById(&#39;cmp-body&#39;).innerHTML=row(&#39;Gross WGT (kg)&#39;,&#39;gross&#39;)+row(&#39;Net WGT (kg)&#39;,&#39;net&#39;);
+}
+
+function clearAll(){
+  data.asn=[];data.thlc=[];
+  setStatus(&#39;asn&#39;,&#39;&#39;);setStatus(&#39;thlc&#39;,&#39;&#39;);
+  renderAll();
+}
+
+renderAll();
 </script>
 </body>
 </html>
